@@ -1,13 +1,13 @@
 #include <float.h>
 #include <math.h>
 #include <stdbool.h>
-#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
 
 #include "raylib.h"
 #include "raymath.h"
+
 #include "lib/types.h"
 #include "lib/arena.h"
 #include "lib/list.h"
@@ -15,15 +15,22 @@
 #include "gui.h"
 
 #define MAX_LENGTH 2048
-#define WIDTH 1200
-#define HEIGHT 900
+#define DEFAULT_WIDTH 1200
+#define DEFAULT_HEIGHT 900
 
 typedef struct {
-    f32 mass;
+    Vector2 positions[TRAIL_MAX];
+    usize count;
+    usize oldest;
+} Trail;
+
+typedef struct {
     Vector2 position;
     Vector2 velocity;
-    Color color;
+    f32 mass;
     bool movable;
+    Color color;
+    Trail trail;
 } Planet;
 
 typedef struct {
@@ -33,8 +40,9 @@ typedef struct {
 } Planets;
 
 typedef struct {
-    Camera2D camera;
     GUIState gui;
+    Camera2D camera;
+    i32 target; // index into planets for camera target, -1 if no target
 
     Planets planets;
     Planets previous;
@@ -42,38 +50,42 @@ typedef struct {
     Vector2 create_position;
 } SimulationState;
 
-void planets_init(Planets *planets, Arena *arena);
+void simulation_init(SimulationState *simulation, Arena *arena);
 void planet_create(SimulationState *simulation, Arena *arena);
 void planet_update(SimulationState *simulation, usize index, f32 dt);
-void camera_update(SimulationState *simulation);
+void planet_draw(SimulationState *simulation, usize index);
 void new_planet_draw(SimulationState *simulation);
+void target_set(SimulationState *simulation);
+void camera_update(SimulationState *simulation, f32 dt);
+void planet_update_gui(SimulationState *simulation);
 
 i32 main() {
     Arena arena = arena_new(1024 * 1024);
 
-    InitWindow(WIDTH, HEIGHT, "esby is confused");
+    SetConfigFlags(FLAG_MSAA_4X_HINT | FLAG_WINDOW_RESIZABLE);
+    InitWindow(DEFAULT_WIDTH, DEFAULT_HEIGHT, "esby is confused");
     SetTargetFPS(60);
 
-    SimulationState simulation = {
-        .camera = (Camera2D) { .zoom = 1.0 },
-        .gui = gui_init(),
-
-        .planets = { 0 },
-        .previous = { 0 }
-    };
-
-    planets_init(&simulation.planets, &arena);
+    SimulationState simulation;
+    simulation_init(&simulation, &arena);
 
     while (!WindowShouldClose()) {
         f32 dt = GetFrameTime();
 
-        camera_update(&simulation);
+        if (simulation.gui.reset) simulation_init(&simulation, &arena);
+        if (IsKeyPressed(KEY_SPACE)) simulation.gui.paused = !simulation.gui.paused;
+        if (IsKeyPressed(KEY_C)) simulation.gui.create = !simulation.gui.create;
+        if (IsKeyPressed(KEY_M)) simulation.gui.movable = !simulation.gui.movable;
+
+        target_set(&simulation);
+        camera_update(&simulation, dt);
+        planet_update_gui(&simulation);
+
         planet_create(&simulation, &arena);
-        if (simulation.gui.reset) planets_init(&simulation.planets, &arena);
 
         Planet previous_data[simulation.planets.length];
         memcpy(previous_data, simulation.planets.data, sizeof(previous_data));
-        simulation.previous = (Planets) { &previous_data, simulation.planets.length, simulation.planets.capacity };
+        simulation.previous = (Planets) { previous_data, simulation.planets.length, simulation.planets.capacity };
 
         for (usize i = 0; i < simulation.planets.length; i++) {
             if (!simulation.gui.paused) planet_update(&simulation, i, dt);
@@ -84,12 +96,7 @@ i32 main() {
         BeginMode2D(simulation.camera);
 
         for (usize i = 0; i < simulation.planets.length; i++) {
-            Planet *planet = &simulation.planets.data[i];
-            DrawCircleLinesV(
-                planet->position,
-                simulation.gui.size * pow(planet->mass, 1.0/3.0),
-                planet->color
-            );
+            planet_draw(&simulation, i);
         }
 
         new_planet_draw(&simulation);
@@ -101,6 +108,44 @@ i32 main() {
 
     CloseWindow();
     return 0;
+}
+
+void simulation_init(SimulationState *simulation, Arena *arena) {
+    simulation->gui = gui_init();
+    simulation->target = -1;
+    simulation->camera = (Camera2D) {
+        .zoom = 1.0,
+        .offset = (Vector2) { GetScreenWidth() / 2.0, GetScreenHeight() / 2.0 },
+    };
+
+    Planets *planets = &simulation->planets;
+    planets->length = 0;
+    planets->capacity = 0;
+}
+
+void planet_create(SimulationState *simulation, Arena *arena) {
+    if (!simulation->gui.create) return;
+
+    if (GetMouseWheelMove() != 0) {
+        f32 scale = 0.2 * GetMouseWheelMove();
+        simulation->gui.mass = expf(logf(simulation->gui.mass) + scale);
+    }
+
+    if (CheckCollisionPointRec(GetMousePosition(), simulation->gui.layout[0])) return;
+    Vector2 mouse = GetScreenToWorld2D(GetMousePosition(), simulation->camera);
+    if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) { simulation->create_position = mouse; }
+    if (IsMouseButtonReleased(MOUSE_BUTTON_LEFT)) {
+        Vector2 parent = Vector2Zero();
+        if (simulation->target != -1) parent = simulation->planets.data[simulation->target].velocity;
+
+        *list_push(&simulation->planets, arena) = (Planet) {
+            .position = simulation->create_position,
+            .velocity = Vector2Add(parent, Vector2Subtract(simulation->create_position, mouse)),
+            .mass = simulation->gui.mass,
+            .movable = simulation->gui.movable,
+            .color = simulation->gui.color,
+        };
+    }
 }
 
 typedef struct {
@@ -115,6 +160,7 @@ static inline RK4State rk4_delta(RK4State state, const SimulationState *simulati
 void planet_update(SimulationState *simulation, usize index, f32 dt) {
     Planet *self = &simulation->planets.data[index];
     if (!self->movable) return;
+
     RK4State state = {
         .position = self->position,
         .velocity = self->velocity
@@ -135,6 +181,14 @@ void planet_update(SimulationState *simulation, usize index, f32 dt) {
     RK4State new_state = rk4_add(state, rk4_scale(k_sum, dt/6.0));
     self->position = new_state.position;
     self->velocity = new_state.velocity;
+
+    if (!self->movable) return;
+    self->trail.positions[(self->trail.oldest + self->trail.count) % TRAIL_MAX] = new_state.position;
+    if (self->trail.count < TRAIL_MAX) {
+        self->trail.count++;
+    } else {
+        self->trail.oldest = (self->trail.oldest + 1) % TRAIL_MAX;
+    }
 }
 
 static Vector2 compute_acceleration(Vector2 position, const SimulationState *simulation, usize index) {
@@ -176,85 +230,9 @@ static inline RK4State rk4_delta(RK4State state, const SimulationState *simulati
     };
 }
 
-void planets_init(Planets *planets, Arena *arena) {
-    planets->length = 0;
-    planets->capacity = 0;
-
-    *list_push(planets, arena) = (Planet) {
-        .mass = 100.0,
-        .position = (Vector2) { WIDTH / 3.0, HEIGHT / 3.0 },
-        .velocity = (Vector2) { 10.0, 60.0 },
-        .color = WHITE,
-        .movable = true,
-    };
-
-    *list_push(planets, arena) = (Planet) {
-        .mass = 100.0,
-        .position = (Vector2) { 2.0 * WIDTH / 3.0, HEIGHT / 3.0 },
-        .velocity = (Vector2) { -80.0, 10.0 },
-        .color = WHITE,
-        .movable = true,
-    };
-
-    *list_push(planets, arena) = (Planet) {
-        .mass = 100.0,
-        .position = (Vector2) { WIDTH / 2.0, 2.0 * HEIGHT / 3.0 },
-        .velocity = (Vector2) { 50.0, -10.0 },
-        .color = WHITE,
-        .movable = true,
-    };
-}
-
-void camera_update(SimulationState *simulation) {
-    if (simulation->gui.create) return;
-    if (CheckCollisionPointRec(GetMousePosition(), simulation->gui.layout[0])) return;
-
-    Camera2D *camera = &simulation->camera;
-    if (IsMouseButtonDown(MOUSE_BUTTON_LEFT)) {
-        Vector2 delta = GetMouseDelta();
-        delta = Vector2Scale(delta, -1.0 / camera->zoom);
-        camera->target = Vector2Add(camera->target, delta);
-    }
-
-    f32 wheel = GetMouseWheelMove();
-    if (wheel != 0) {
-        f32 scale = 0.2 * wheel;
-        Vector2 mouse_world_position = GetScreenToWorld2D(GetMousePosition(), *camera);
-        camera->offset = GetMousePosition();
-        camera->target = mouse_world_position;
-        camera->zoom = Clamp(expf(logf(camera->zoom) + scale), 0.125, 64.0);
-    }
-}
-
-void planet_create(SimulationState *simulation, Arena *arena) {
-    if (!simulation->gui.create) return;
-    if (CheckCollisionPointRec(GetMousePosition(), simulation->gui.layout[0])) return;
-
-    if (GetMouseWheelMove() != 0) {
-        f32 scale = 0.2 * GetMouseWheelMove();
-        simulation->gui.mass = expf(logf(simulation->gui.mass) + scale);
-    }
-
-    Vector2 mouse_world_position = GetScreenToWorld2D(GetMousePosition(), simulation->camera);
-
-    if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
-        simulation->create_position = mouse_world_position;
-    }
-
-    if (IsMouseButtonReleased(MOUSE_BUTTON_LEFT)) {
-        *list_push(&simulation->planets, arena) = (Planet) {
-            .mass = simulation->gui.mass,
-            .position = simulation->create_position,
-            .velocity = Vector2Subtract(simulation->create_position, mouse_world_position),
-            .color = simulation->gui.color,
-            .movable = simulation->gui.movable,
-        };
-    }
-}
-
-void draw_vector(Vector2 start, Vector2 vector, Color color) {
-    #define ARROW_HEAD_LENGTH 20
-    #define ARROW_ANGLE 5*PI/6
+void DrawVector(Vector2 start, Vector2 vector, Color color) {
+    #define ARROW_HEAD_LENGTH 10
+    #define ARROW_ANGLE 3*PI/4
     
     Vector2 end = Vector2Add(start, vector);
     DrawLineV(start, end, color);
@@ -265,28 +243,149 @@ void draw_vector(Vector2 start, Vector2 vector, Color color) {
     DrawLineV(end, Vector2Add(end, Vector2Scale(head_2, ARROW_HEAD_LENGTH)), color);
 }
 
+void planet_draw(SimulationState *simulation, usize index) {
+    Planet *planet = &simulation->planets.data[index];
+    if (planet->movable) {
+        DrawCircleLinesV(
+            planet->position,
+            simulation->gui.size * pow(planet->mass, 1.0/3.0),
+            planet->color
+        );
+    } else {
+        DrawCircleV(
+            planet->position,
+            simulation->gui.size * pow(planet->mass, 1.0/3.0),
+            planet->color
+        );
+    }
+
+    if (!planet->movable) return;
+    if (simulation->gui.draw_velocity) DrawVector(planet->position, planet->velocity, planet->color);
+
+    usize count = planet->trail.count < simulation->gui.trail ? planet->trail.count : simulation->gui.trail;
+    for (usize i = 1; i < count; i++) {
+        Vector2 a = planet->trail.positions[(planet->trail.oldest + planet->trail.count - i) % TRAIL_MAX];
+        Vector2 b = planet->trail.positions[(planet->trail.oldest + planet->trail.count - i - 1) % TRAIL_MAX];
+
+        Color color = planet->color;
+        color.a = 256 * (count - i) / count;
+        DrawLineV(a, b, color);
+    }
+}
+
 void new_planet_draw(SimulationState *simulation) {
     if (!simulation->gui.create) return;
     if (CheckCollisionPointRec(GetMousePosition(), simulation->gui.layout[0])) return;
 
-    Vector2 position = IsMouseButtonDown(MOUSE_BUTTON_LEFT)
-        ? simulation->create_position
-        : GetMousePosition();
+    Vector2 mouse = GetScreenToWorld2D(GetMousePosition(), simulation->camera);
+    Vector2 position = IsMouseButtonDown(MOUSE_BUTTON_LEFT) ? simulation->create_position : mouse;
 
-    DrawCircleLinesV(
-        position,
-        simulation->gui.size * pow(simulation->gui.mass, 1.0/3.0),
-        simulation->gui.color
-    );
+    Color color = simulation->gui.color;
+    color.a = 128;
+    if (simulation->gui.movable) {
+        DrawCircleLinesV(
+            position,
+            simulation->gui.size * pow(simulation->gui.mass, 1.0/3.0),
+            color
+        );
+    } else {
+        DrawCircleV(
+            position,
+            simulation->gui.size * pow(simulation->gui.mass, 1.0/3.0),
+            color
+        );
+    }
 
     if (IsMouseButtonDown(MOUSE_BUTTON_LEFT)) {
-        draw_vector(
+        Vector2 parent = Vector2Zero();
+        if (simulation->target != -1) parent = simulation->planets.data[simulation->target].velocity;
+
+        DrawVector(
             simulation->create_position,
-            Vector2Subtract(
-                simulation->create_position,
-                GetScreenToWorld2D(GetMousePosition(), simulation->camera)
-            ),
+            Vector2Add(parent, Vector2Subtract(simulation->create_position, mouse)),
             simulation->gui.color
         );
     }
+};
+
+// https://www.youtube.com/watch?v=LSNQuFEDOyQ
+Vector2 Vector2ExpDecay(Vector2 a, Vector2 b, f32 decay, f32 dt) {
+    return Vector2Add(b, Vector2Scale(
+        Vector2Subtract(a, b),
+        exp(-decay * dt)
+    ));
 }
+
+void target_set(SimulationState *simulation) {
+    if (simulation->gui.create) return;
+    if (!IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) return;
+    for (usize i = 0; i < simulation->planets.length; i++) {
+        Planet planet = simulation->planets.data[i];
+        f32 size = simulation->gui.size * pow(planet.mass, 1.0/3.0);
+        if (CheckCollisionPointCircle(GetScreenToWorld2D(GetMousePosition(), simulation->camera), planet.position, size)) {
+            simulation->target = i;
+            simulation->gui.mass = planet.mass;
+            simulation->gui.movable = planet.movable;
+            simulation->gui.color = planet.color;
+        }
+    }
+}
+
+void camera_update(SimulationState *simulation, f32 dt) {
+    #define CAMERA_SMOOTHING 12.0
+
+    Camera2D *camera = &simulation->camera;
+    if (simulation->target != -1) {
+        camera->target = Vector2ExpDecay(
+            camera->target,
+            simulation->planets.data[simulation->target].position,
+            CAMERA_SMOOTHING,
+            dt
+        );
+
+        camera->offset = Vector2ExpDecay(
+            camera->offset,
+            (Vector2) { GetScreenWidth() / 2.0, GetScreenHeight() / 2.0 },
+            CAMERA_SMOOTHING,
+            dt
+        );
+    }
+
+    if (CheckCollisionPointRec(GetMousePosition(), simulation->gui.layout[0])) return;
+    if (IsMouseButtonDown(MOUSE_BUTTON_RIGHT)) {
+        Vector2 delta = GetMouseDelta();
+        delta = Vector2Scale(delta, -1.0 / camera->zoom);
+        camera->target = Vector2Add(camera->target, delta);
+        simulation->target = -1;
+    }
+
+    if (GetMouseWheelMove() != 0.0) {
+        if (simulation->gui.create) return;
+        f32 scale = 0.2 * GetMouseWheelMove();
+        camera->zoom = Clamp(expf(logf(camera->zoom) + scale), 0.125, 64.0);
+
+        if (simulation->target == -1) {
+            Vector2 mouse_world_position = GetScreenToWorld2D(GetMousePosition(), *camera);
+            camera->offset = GetMousePosition();
+            camera->target = mouse_world_position;
+        }
+    }
+}
+
+void planet_update_gui(SimulationState *simulation) {
+    if (simulation->target == -1) return;
+    if (simulation->gui.create) return;
+
+    Planet *planet = &simulation->planets.data[simulation->target];
+    if (simulation->gui.previous_create) {
+        simulation->gui.mass = planet->mass;
+        simulation->gui.movable = planet->movable;
+        simulation->gui.color = planet->color;
+        return;
+    }
+
+    planet->mass = simulation->gui.mass;
+    planet->movable = simulation->gui.movable;
+    planet->color = simulation->gui.color;
+}
+

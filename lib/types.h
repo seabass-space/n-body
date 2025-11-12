@@ -2,6 +2,7 @@
 
 #include <stddef.h>
 #include <stdint.h>
+#include <sys/types.h>
 
 typedef float     f32;
 typedef double    f64;
@@ -19,4 +20,5 @@ typedef int64_t   i64;
 typedef intptr_t  iptr;
 
 typedef size_t    usize;
+typedef ssize_t   isize;
 

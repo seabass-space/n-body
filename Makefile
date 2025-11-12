@@ -18,6 +18,9 @@ run: all
 clean:
 	rm -rf $(BUILD)
 
+web:
+	# https://anguscheng.com/post/2023-12-12-wasm-game-in-c-raylib/
+
 compile_flags.txt: FORCE
 	@echo "Generating compile_flags.txt."
 	@echo $(CFLAGS) | tr " " "\n" > $@

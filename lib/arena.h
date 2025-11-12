@@ -19,10 +19,10 @@ typedef struct {
 } Arena;
 
 Arena arena_new(usize capacity) {
-    Arena a = {0};
+    Arena a = { 0 };
     a.base = malloc(capacity);
     a.start = a.base;
-    a.end = a.start ? a.start+capacity : 0;
+    a.end = a.start ? a.start + capacity : 0;
     return a;
 }
 

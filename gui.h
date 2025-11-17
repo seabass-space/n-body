@@ -27,14 +27,19 @@
 #define MASS_MAX 600.0
 
 #define TRAIL_DEFAULT 64
-#define TRAIL_MAX 256
+#define TRAIL_MAX 1024
 #define TRAIL_MIN 0
 
 #define COLOR_DEFAULT WHITE
 
+typedef enum {
+    RK4,
+    Verlet,
+} Integrator;
+
 typedef struct {
     Vector2 anchor;
-    Rectangle layout[17];
+    Rectangle layout[19];
     bool minimized;
     bool moving;
 
@@ -42,9 +47,11 @@ typedef struct {
     bool paused;
 
     f32 gravity;
-    f32 trail;
+    Integrator integrator;
 
     f32 size;
+    f32 trail;
+    bool draw_relative;
     bool draw_velocity;
     bool draw_forces;
     bool draw_net_force;
@@ -68,9 +75,11 @@ GUIState gui_init() {
         .paused = false,
 
         .gravity = GRAVITY_DEFAULT,
-        .trail = TRAIL_DEFAULT,
+        .integrator = RK4,
 
         .size = SIZE_DEFAULT,
+        .trail = TRAIL_DEFAULT,
+        .draw_relative = false,
         .draw_velocity = false,
         .draw_forces = false,
         .draw_net_force = false,
@@ -88,11 +97,10 @@ GUIState gui_init() {
 
 void gui_draw(GUIState *state) {
     state->previous_create = state->create;
+
     if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && !state->moving) {
         Rectangle title_collision_rect = { state->anchor.x, state->anchor.y, state->layout[0].width - (RAYGUI_WINDOW_CLOSEBUTTON_SIZE + CLOSE_TITLE_SIZE_DELTA_HALF), RAYGUI_WINDOWBOX_STATUSBAR_HEIGHT };
-        if(CheckCollisionPointRec(GetMousePosition(), title_collision_rect)) {
-            state->moving = true;
-        }
+        if(CheckCollisionPointRec(GetMousePosition(), title_collision_rect)) state->moving = true;
     }
 
     if (state->moving) {
@@ -122,44 +130,61 @@ void gui_draw(GUIState *state) {
         }
     } else {
         state->minimized = GuiWindowBox(state->layout[0], "N-Body Simulation");
-        GuiGroupBox(state->layout[9], "Controls");
-        state->reset = GuiButton(state->layout[10], "Reset"); 
-        GuiToggle(state->layout[11], "Pause", &state->paused);
 
-        GuiGroupBox(state->layout[1], "Simulation Parameters");
-        GuiSlider(state->layout[3], "Gravity Modifier", NULL, &state->gravity, GRAVITY_MIN, GRAVITY_MAX);
+        GuiGroupBox(state->layout[1], "Controls");
+        state->reset = GuiButton(state->layout[2], "Reset"); 
+        GuiToggle(state->layout[3], "Pause", &state->paused);
 
-        GuiGroupBox(state->layout[12], "Drawing Controls");
-        GuiSliderBar(state->layout[2], "Size Modifier", NULL, &state->size, SIZE_MIN, SIZE_MAX);
-        GuiSliderBar(state->layout[16], "Trail Length", NULL, &state->trail, TRAIL_MIN, TRAIL_MAX);
-        GuiCheckBox(state->layout[13], "Draw Velocity", &state->draw_velocity);
-        GuiCheckBox(state->layout[14], "Draw Net Force", &state->draw_net_force);
-        GuiCheckBox(state->layout[15], "Draw Force Components", &state->draw_forces);
+        GuiGroupBox(state->layout[4], "Simulation Parameters");
+        GuiSlider(state->layout[5], "Gravity Modifier", NULL, &state->gravity, GRAVITY_MIN, GRAVITY_MAX);
+        GuiToggleGroup(state->layout[6], "RK4;Verlet;Barnes Hut", &state->integrator);
 
-        GuiGroupBox(state->layout[4], "New Body");
-        GuiColorPicker(state->layout[5], NULL, &state->color);
-        GuiSlider(state->layout[6], "Mass", NULL, &state->mass, MASS_MIN, MASS_MAX);
-        GuiCheckBox(state->layout[8], "Moveable?", &state->movable);
-        GuiToggle(state->layout[7], "Create!", &state->create);
+        GuiGroupBox(state->layout[7], "Drawing Controls");
+        GuiSliderBar(state->layout[8], "Size Modifier", NULL, &state->size, SIZE_MIN, SIZE_MAX);
+        GuiSliderBar(state->layout[9], "Trail Length", NULL, &state->trail, TRAIL_MIN, TRAIL_MAX);
+        GuiCheckBox(state->layout[10], "Draw Relative Trail", &state->draw_relative);
+        GuiCheckBox(state->layout[11], "Draw Velocity", &state->draw_velocity);
+        GuiCheckBox(state->layout[12], "Draw Net Force", &state->draw_net_force);
+        GuiCheckBox(state->layout[13], "Draw Force Components", &state->draw_forces);
+
+        GuiGroupBox(state->layout[14], "New / Edit Body");
+        GuiColorPicker(state->layout[15], NULL, &state->color);
+        GuiSlider(state->layout[16], "Mass", NULL, &state->mass, MASS_MIN, MASS_MAX);
+        GuiCheckBox(state->layout[17], "Moveable?", &state->movable);
+        GuiToggle(state->layout[18], "Create!", &state->create);
     }
 }
 
 static void update_layout(GUIState *state) {
-    state->layout[0] = (Rectangle){ state->anchor.x + 0, state->anchor.y + 0, 320, 584 };
-    state->layout[1] = (Rectangle){ state->anchor.x + 16, state->anchor.y + 112, 288, 48 };
-    state->layout[2] = (Rectangle){ state->anchor.x + 136, state->anchor.y + 192, 152, 16 };
-    state->layout[3] = (Rectangle){ state->anchor.x + 136, state->anchor.y + 128, 152, 16 };
-    state->layout[4] = (Rectangle){ state->anchor.x + 16, state->anchor.y + 352, 288, 216 };
-    state->layout[5] = (Rectangle){ state->anchor.x + 32, state->anchor.y + 368, 232, 112 };
-    state->layout[6] = (Rectangle){ state->anchor.x + 80, state->anchor.y + 496, 208, 16 };
-    state->layout[7] = (Rectangle){ state->anchor.x + 160, state->anchor.y + 528, 128, 24 };
-    state->layout[8] = (Rectangle){ state->anchor.x + 40, state->anchor.y + 528, 24, 24 };
-    state->layout[9] = (Rectangle){ state->anchor.x + 16, state->anchor.y + 40, 288, 56 };
-    state->layout[10] = (Rectangle){ state->anchor.x + 32, state->anchor.y + 56, 120, 24 };
-    state->layout[11] = (Rectangle){ state->anchor.x + 168, state->anchor.y + 56, 120, 24 };
-    state->layout[12] = (Rectangle){ state->anchor.x + 16, state->anchor.y + 176, 288, 160 };
-    state->layout[13] = (Rectangle){ state->anchor.x + 32, state->anchor.y + 256, 24, 24 };
-    state->layout[14] = (Rectangle){ state->anchor.x + 160, state->anchor.y + 256, 24, 24 };
-    state->layout[15] = (Rectangle){ state->anchor.x + 32, state->anchor.y + 296, 24, 24 };
-    state->layout[16] = (Rectangle){ state->anchor.x + 136, state->anchor.y + 224, 152, 16 };
+    Vector2 controls = { state->anchor.x + 16, state->anchor.y + 40 };
+    Vector2 simulation = { state->anchor.x + 16, state->anchor.y + 112 };
+    Vector2 drawing = { state->anchor.x + 16, state->anchor.y + 208 };
+    Vector2 body = { state->anchor.x + 16, state->anchor.y + 424 };
+    state->layout[0] = (Rectangle) { state->anchor.x, state->anchor.y, 320, 656 };
+
+    // Controls
+    state->layout[1] = (Rectangle) { controls.x, controls.y, 288, 56 };
+    state->layout[2] = (Rectangle) { controls.x + 16, controls.y + 16, 120, 24 };
+    state->layout[3] = (Rectangle) { controls.x + 152, controls.y + 16, 120, 24 };
+
+    // Simulation Parameters
+    state->layout[4] = (Rectangle) { simulation.x, simulation.y, 288, 80 };
+    state->layout[5] = (Rectangle) { simulation.x + 120, simulation.y + 16, 152, 16 };
+    state->layout[6] = (Rectangle) { simulation.x + 16, simulation.y + 48, 85, 16 };
+
+    // Drawing Controls
+    state->layout[7] = (Rectangle) { drawing.x, drawing.y, 288, 200 };
+    state->layout[8] = (Rectangle) { drawing.x + 120, drawing.y + 16, 152, 16 };
+    state->layout[9] = (Rectangle) { drawing.x + 120, drawing.y + 48, 152, 16 };
+    state->layout[10] = (Rectangle) { drawing.x + 16, drawing.y + 80, 24, 24 };
+    state->layout[11] = (Rectangle) { drawing.x + 16, drawing.y + 120, 24, 24 };
+    state->layout[12] = (Rectangle) { drawing.x + 144, drawing.y + 120, 24, 24 };
+    state->layout[13] = (Rectangle) { drawing.x + 16, drawing.y + 160, 24, 24 };
+    
+    // New / Edit Body
+    state->layout[14] = (Rectangle) { body.x, body.y, 288, 216 };
+    state->layout[15] = (Rectangle) { body.x + 16, body.y + 16, 232, 112 };
+    state->layout[16] = (Rectangle) { body.x + 64, body.y + 144, 208, 16 };
+    state->layout[17] = (Rectangle) { body.x + 24, body.y + 176, 24, 24 };
+    state->layout[18] = (Rectangle) { body.x + 144, body.y + 176, 128, 24 };
 }

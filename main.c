@@ -69,11 +69,14 @@ i32 main() {
     SimulationState simulation;
     simulation_init(&simulation, &arena);
 
-    while (!WindowShouldClose()) {
+    while (!WindowShouldClose() || IsKeyPressed(KEY_ESCAPE)) {
         f32 dt = GetFrameTime();
 
-        if (simulation.gui.reset) simulation_init(&simulation, &arena);
+        if (IsKeyPressed(KEY_R) || simulation.gui.reset) simulation_init(&simulation, &arena);
         if (IsKeyPressed(KEY_SPACE)) simulation.gui.paused = !simulation.gui.paused;
+        if (IsKeyPressed(KEY_ESCAPE) && simulation.gui.create) simulation.gui.create = false;
+        if (IsKeyPressed(KEY_LEFT_BRACKET)) simulation.target = (simulation.target - 1) % simulation.planets.length;
+        if (IsKeyPressed(KEY_RIGHT_BRACKET)) simulation.target = (simulation.target + 1) % simulation.planets.length;
         if (IsKeyPressed(KEY_C)) simulation.gui.create = !simulation.gui.create;
         if (IsKeyPressed(KEY_M)) simulation.gui.movable = !simulation.gui.movable;
 
@@ -133,14 +136,17 @@ void planet_create(SimulationState *simulation, Arena *arena) {
 
     if (CheckCollisionPointRec(GetMousePosition(), simulation->gui.layout[0])) return;
     Vector2 mouse = GetScreenToWorld2D(GetMousePosition(), simulation->camera);
+
     if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) { simulation->create_position = mouse; }
     if (IsMouseButtonReleased(MOUSE_BUTTON_LEFT)) {
-        Vector2 parent = Vector2Zero();
-        if (simulation->target != -1) parent = simulation->planets.data[simulation->target].velocity;
+        Vector2 target_velocity = (simulation->target != -1)
+            ? simulation->planets.data[simulation->target].velocity
+            : Vector2Zero();
+        Vector2 dragged_velocity = Vector2Subtract(simulation->create_position, mouse);
 
         *list_push(&simulation->planets, arena) = (Planet) {
             .position = simulation->create_position,
-            .velocity = Vector2Add(parent, Vector2Subtract(simulation->create_position, mouse)),
+            .velocity = Vector2Add(target_velocity, dragged_velocity),
             .mass = simulation->gui.mass,
             .movable = simulation->gui.movable,
             .color = simulation->gui.color,
@@ -192,17 +198,19 @@ void planet_update(SimulationState *simulation, usize index, f32 dt) {
 }
 
 static Vector2 compute_acceleration(Vector2 position, const SimulationState *simulation, usize index) {
+    Planet *planet = &simulation->previous.data[index];
+    Vector2 displacement = Vector2Subtract(planet->position, position);
+    Vector2 direction = Vector2Normalize(displacement);
+    f32 length_squared = Vector2LengthSqr(displacement);
+    if (length_squared < EPSILON) { return Vector2Zero(); }
+    return Vector2Scale(direction, (simulation->gui.gravity * planet->mass) / length_squared);
+}
+
+static Vector2 compute_field(Vector2 position, const SimulationState *simulation, usize index) {
     Vector2 net_acceleration = Vector2Zero();
     for (usize i = 0; i < simulation->previous.length; i++) {
         if (i == index) { continue; }
-        Planet *planet = &simulation->previous.data[i];
-
-        Vector2 displacement = Vector2Subtract(planet->position, position);
-        Vector2 direction = Vector2Normalize(displacement);
-        f32 length_squared = Vector2LengthSqr(displacement);
-        if (length_squared < EPSILON) { continue; }
-
-        Vector2 acceleration = Vector2Scale(direction, (simulation->gui.gravity * planet->mass) / length_squared);
+        Vector2 acceleration = compute_acceleration(position, simulation, i);
         net_acceleration = Vector2Add(net_acceleration, acceleration);
     }
 
@@ -226,7 +234,7 @@ static inline RK4State rk4_scale(RK4State state, f32 scale) {
 static inline RK4State rk4_delta(RK4State state, const SimulationState *simulation, usize index) {
     return (RK4State) {
         .position = state.velocity,
-        .velocity = compute_acceleration(state.position, simulation, index),
+        .velocity = compute_field(state.position, simulation, index),
     };
 }
 
@@ -245,27 +253,48 @@ void DrawVector(Vector2 start, Vector2 vector, Color color) {
 
 void planet_draw(SimulationState *simulation, usize index) {
     Planet *planet = &simulation->planets.data[index];
-    if (planet->movable) {
-        DrawCircleLinesV(
-            planet->position,
-            simulation->gui.size * pow(planet->mass, 1.0/3.0),
-            planet->color
-        );
-    } else {
-        DrawCircleV(
-            planet->position,
-            simulation->gui.size * pow(planet->mass, 1.0/3.0),
-            planet->color
-        );
+
+    void (*draw)(Vector2, f32, Color) = planet->movable ? DrawCircleLinesV : DrawCircleV;
+    draw(
+        planet->position,
+        simulation->gui.size * pow(planet->mass, 1.0/3.0),
+        planet->color
+    );
+
+    // slider to control force arrow size?
+    if (simulation->gui.draw_forces) {
+        for (usize i = 0; i < simulation->planets.length; i++) {
+            if (i == index) continue;
+            Vector2 accleration = compute_acceleration(planet->position, simulation, i);
+            Vector2 force = Vector2Scale(accleration, planet->mass);
+            DrawVector(planet->position, force, simulation->planets.data[i].color);
+        }
+
+    }
+
+    // way to reduce computation?
+    if (simulation->gui.draw_net_force) {
+        Vector2 net_acceleration = compute_field(planet->position, simulation, index);
+        Vector2 net_force = Vector2Scale(net_acceleration, planet->mass);
+        DrawVector(planet->position, net_force, planet->color);
     }
 
     if (!planet->movable) return;
-    if (simulation->gui.draw_velocity) DrawVector(planet->position, planet->velocity, planet->color);
+    Vector2 target_velocity = (simulation->gui.draw_relative && simulation->target != -1)
+        ? simulation->planets.data[simulation->target].velocity
+        : Vector2Zero();
+    if (simulation->gui.draw_velocity) DrawVector(planet->position, Vector2Subtract(planet->velocity, target_velocity), planet->color);
 
     usize count = planet->trail.count < simulation->gui.trail ? planet->trail.count : simulation->gui.trail;
     for (usize i = 1; i < count; i++) {
         Vector2 a = planet->trail.positions[(planet->trail.oldest + planet->trail.count - i) % TRAIL_MAX];
         Vector2 b = planet->trail.positions[(planet->trail.oldest + planet->trail.count - i - 1) % TRAIL_MAX];
+
+        if (simulation->gui.draw_relative && simulation->target != -1) {
+            Planet *target = &simulation->planets.data[simulation->target];
+            a = Vector2Add(target->position, Vector2Subtract(a, target->trail.positions[(target->trail.oldest + target->trail.count - i) % TRAIL_MAX]));
+            b = Vector2Add(target->position, Vector2Subtract(b, target->trail.positions[(target->trail.oldest + target->trail.count - i - 1) % TRAIL_MAX]));
+        }
 
         Color color = planet->color;
         color.a = 256 * (count - i) / count;
@@ -282,30 +311,19 @@ void new_planet_draw(SimulationState *simulation) {
 
     Color color = simulation->gui.color;
     color.a = 128;
-    if (simulation->gui.movable) {
-        DrawCircleLinesV(
-            position,
-            simulation->gui.size * pow(simulation->gui.mass, 1.0/3.0),
-            color
-        );
-    } else {
-        DrawCircleV(
-            position,
-            simulation->gui.size * pow(simulation->gui.mass, 1.0/3.0),
-            color
-        );
-    }
+    void (*draw)(Vector2, f32, Color) = simulation->gui.movable ? DrawCircleLinesV : DrawCircleV;
+    draw(position, simulation->gui.size * pow(simulation->gui.mass, 1.0/3.0), color);
 
-    if (IsMouseButtonDown(MOUSE_BUTTON_LEFT)) {
-        Vector2 parent = Vector2Zero();
-        if (simulation->target != -1) parent = simulation->planets.data[simulation->target].velocity;
-
-        DrawVector(
-            simulation->create_position,
-            Vector2Add(parent, Vector2Subtract(simulation->create_position, mouse)),
-            simulation->gui.color
-        );
-    }
+    if (!simulation->gui.movable) return;
+    Vector2 target_velocity = (simulation->target != -1 && !simulation->gui.draw_relative)
+        ? simulation->planets.data[simulation->target].velocity
+        : Vector2Zero();
+    Vector2 dragged_velocity = IsMouseButtonDown(MOUSE_LEFT_BUTTON) ? Vector2Subtract(simulation->create_position, mouse) : Vector2Zero();
+    DrawVector(
+        position,
+        Vector2Add(target_velocity, dragged_velocity),
+        simulation->gui.color
+    );
 };
 
 // https://www.youtube.com/watch?v=LSNQuFEDOyQ

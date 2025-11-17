@@ -14,13 +14,14 @@ A basic n-body simulation explorer to help learn C, Raylib, and the RK4 iterativ
 | `m` | Toggle if Planet is Movable |
 | Left-Mouse Drag | Set New Planet Velocity |
 
-## Wants and todos
+## Wants
 (in somewhat increasing order of i-dont-know-what-im-doing)
-- Draw net force and force components options
-- Relative paths when target option
+- Fixed timestep for stability
+- Classical gravitational field viewer
+- Arena + dynamic arrays
 - Trajectory viewer?
 - Web build
-- RK4 vs Verlet?
+- RK4 vs Verlet? Barnes-Hut?
 - Scene saver / loader
     - Three body problem
     - Solar system

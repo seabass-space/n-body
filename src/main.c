@@ -36,6 +36,8 @@ i32 main() {
         if (IsKeyPressed(KEY_M)) application.gui.movable = !application.gui.movable;
         if (IsKeyPressed(KEY_LEFT_BRACKET)) target_set(&application, (application.planet_target + arrlen(application.simulation.planets) - 1) % arrlen(application.simulation.planets));
         if (IsKeyPressed(KEY_RIGHT_BRACKET)) target_set(&application, (application.planet_target + 1) % arrlen(application.simulation.planets));
+        if (IsKeyPressed(KEY_Z)) application.last_planet = arrpop(application.simulation.planets);
+        if (IsKeyPressed(KEY_Y)) arrpush(application.simulation.planets, application.last_planet);
 
         target_click(&application);
         planet_update_gui(&application);

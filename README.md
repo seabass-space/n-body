@@ -20,7 +20,6 @@ A basic n-body simulation explorer to help learn C, Raylib, and the RK4 iterativ
 (in somewhat increasing order of i-dont-know-what-im-doing)
 - Web build
 - Barnes-Hut?
-- Collisions?
 - Planet deletion
 - Classical gravitational field lines?
 - Generational indices over array deletion?

@@ -1,6 +1,6 @@
 #define WIDTH_DEFAULT 1200
 #define HEIGHT_DEFAULT 900
-#define TIME_STEP 0.005
+#define TIME_STEP 0.01
 
 #define GRAVITY_DEFAULT 10000.0
 #define GRAVITY_MIN 5000.0
@@ -31,5 +31,5 @@
 
 #define MASS_DEFAULT 100.0
 #define MASS_MIN 0.0
-#define MASS_MAX 1000.0
+#define MASS_MAX 5000.0
 

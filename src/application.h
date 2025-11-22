@@ -5,6 +5,7 @@
 
 typedef struct {
     Simulation simulation;
+    Planet last_planet;
     isize planet_target;
     GUI gui;
     Camera2D camera;

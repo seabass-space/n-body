@@ -53,7 +53,7 @@ void application_update(Application *application, f32 delta_time) {
 
     Vector2 mouse = GetScreenToWorld2D(GetMousePosition(), application->camera.rl_camera);
     Vector2 dragged_velocity = Vector2Subtract(application->input.new_planet.position, mouse);
-    Planet *new_planet = (application->gui.create && Vector2LengthSqr(dragged_velocity) > 1.0)
+    Planet *new_planet = (application->gui.create && Vector2LengthSqr(dragged_velocity) > 100.0)
         ? &application->input.new_planet
         : NULL;
     predictor_update(&application->predictor, new_planet, delta_time);
@@ -86,7 +86,7 @@ void application_free(Application *application) {
 }
 
 // handle inputs
-void target_set(Application *application, isize index);
+void target_set(Application *application, usize index);
 void input_keyboard(Application *application) {
     if (IsKeyPressed(KEY_R) || application->gui.reset) application_init(application);
     if (IsKeyPressed(KEY_SPACE)) application->gui.paused = !application->gui.paused;
@@ -114,7 +114,7 @@ void input_click(Application *application) {
     }
 }
 
-void target_set(Application *application, isize index) {
+void target_set(Application *application, usize index) {
     Planet planet = application->simulation.planets[index];
     Visual visuals = application->drawer.visuals[index];
 

@@ -20,5 +20,5 @@ typedef int64_t   i64;
 typedef intptr_t  iptr;
 
 typedef size_t    usize;
-typedef ssize_t   isize;
+// typedef ssize_t   isize;
 

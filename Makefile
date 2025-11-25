@@ -1,31 +1,30 @@
 CC      = clang
-TARGET  = main
-SOURCES = src/main.c
-BUILD   = build
 
-CFLAGS  = -std=c99 -Wall -Wextra
+CFLAGS  = -std=c99 -Wall -Wextra -Werror
 CFLAGS += -I.
 CFLAGS += -DSIM_IMPLEMENTATION -DPREDICTOR_IMPLEMENTATION -DDRAW_IMPLEMENTATION -DCAMERA_IMPLEMENTATION -DGUI_IMPLEMENTATION -DAPP_IMPLEMENTATION
+
 LDFLAGS = $(shell pkg-config --libs raylib)
 
 DEBUG = -g -fcolor-diagnostics -fansi-escape-codes -fsanitize=address
 RELEASE = -O3 -march=native
 
-all: $(BUILD)/$(TARGET)
+all: build/main
 
-$(BUILD)/$(TARGET): FORCE
-	mkdir -p $(BUILD)
-	$(CC) $(SOURCES) $(CFLAGS) $(LDFLAGS) $(DEBUG) -o $@
+build/main: src/*.c src/*.h
+	$(CC) $< $(CFLAGS) $(LDFLAGS) $(DEBUG) -o $@
 
-release: FORCE
-	mkdir -p $(BUILD)
-	$(CC) $(SOURCES) $(CFLAGS) $(LDFLAGS) $(RELEASE) -o $(BUILD)/release
+debug: build/main
+	./$<
 
-run: all
-	./$(BUILD)/$(TARGET)
+build/release: src/*.c src/*.h
+	$(CC) $< $(CFLAGS) $(LDFLAGS) $(RELEASE) -o $@
+
+release: build/release
+	./$<
 
 clean:
-	rm -rf $(BUILD)
+	rm -rf build
 
 web:
 	# https://anguscheng.com/post/2023-12-12-wasm-game-in-c-raylib/

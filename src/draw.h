@@ -115,7 +115,8 @@ void draw_all(const DrawState *drawer, Planet *new_planet, Visual *new_visual) {
     }
 
     if (new_planet != NULL && new_visual != NULL) {
-        DrawCircleLinesV(new_planet->position, planet_radius(drawer->simulation, new_planet->mass), new_visual->color);
+        void (*draw_planet)(Vector2, f32, Color) = new_planet->movable ? DrawCircleLinesV : DrawCircleV;
+        draw_planet(new_planet->position, planet_radius(drawer->simulation, new_planet->mass), new_visual->color);
         Vector2 target_velocity = (drawer->camera->target != (usize) -1 && drawer->parameters.draw_relative)
             ? drawer->simulation->planets[drawer->camera->target].velocity
             : Vector2Zero();

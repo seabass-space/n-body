@@ -30,17 +30,21 @@ typedef struct {
 typedef struct {
     DrawParameters parameters;
     Visual *visuals;
+
+    const SimulationState *simulation;
+    const PredictorState *predictor;
+    const CameraState *camera;
 } DrawState;
 
-void draw_init(DrawState *drawer);
-void draw(const DrawState *drawer, const SimulationState *simulation, const PredictorState *predictor, const CameraState *camera);
+void draw_init(DrawState *drawer, const SimulationState *simulation, const PredictorState *predictor, const CameraState *camera);
+void draw_all(const DrawState *drawer, Planet *new_planet, Visual *new_visual);
 
 #ifdef DRAW_IMPLEMENTATION
 
 void DrawVector(Vector2 start, Vector2 vector, Color color);
 static inline usize trail_nth_latest(Trail* trail, usize n);
 
-void draw_init(DrawState *drawer) {
+void draw_init(DrawState *drawer, const SimulationState *simulation, const PredictorState *predictor, const CameraState *camera) {
     drawer->parameters = (DrawParameters) {
         .trail = TRAIL_DEFAULT,
         .draw_relative = false,
@@ -54,11 +58,16 @@ void draw_init(DrawState *drawer) {
         arrfree(drawer->visuals);
         drawer->visuals = NULL;
     }
+
+    drawer->simulation = simulation;
+    drawer->predictor = predictor;
+    drawer->camera = camera;
 }
 
-void draw(const DrawState *drawer, const SimulationState *simulation, const PredictorState *predictor, const CameraState *camera) {
-    for (usize i = 0; i < arrlenu(simulation->planets); i++) {
-        Planet *planet = &simulation->planets[i];
+void draw_all(const DrawState *drawer, Planet *new_planet, Visual *new_visual) {
+    Planet *planets = drawer->simulation->planets;
+    for (usize i = 0; i < arrlenu(planets); i++) {
+        Planet *planet = &planets[i];
         Visual *visual = &drawer->visuals[i];
 
         visual->trail.positions[trail_nth_latest(&visual->trail, 0)] = planet->position;
@@ -66,28 +75,28 @@ void draw(const DrawState *drawer, const SimulationState *simulation, const Pred
         else visual->trail.oldest = (visual->trail.oldest + 1) % TRAIL_MAX;
     }
 
-    for (usize i = 0; i < arrlenu(simulation->planets); i++) {
-        Planet *planet = &simulation->planets[i];
+    for (usize i = 0; i < arrlenu(planets); i++) {
+        Planet *planet = &planets[i];
         Visual *visual = &drawer->visuals[i];
 
         void (*draw_planet)(Vector2, f32, Color) = planet->movable ? DrawCircleLinesV : DrawCircleV;
         draw_planet(
             planet->position,
-            planet_radius(simulation, planet->mass),
+            planet_radius(drawer->simulation, planet->mass),
             visual->color
         );
 
         // TODO: draw_forces, draw_field_grid
         
-        if (!planet->movable && camera->target == (usize) -1) continue;
+        if (!planet->movable && drawer->camera->target == (usize) -1) continue;
         usize trail_count = visual->trail.count < drawer->parameters.trail ? visual->trail.count : drawer->parameters.trail;
         for (usize i = 1; i < trail_count; i++) {
             Vector2 point_a = visual->trail.positions[trail_nth_latest(&visual->trail, i)];
             Vector2 point_b = visual->trail.positions[trail_nth_latest(&visual->trail, i + 1)];
 
-            if (drawer->parameters.draw_relative && camera->target != (usize) -1) {
-                Planet *target = &simulation->planets[camera->target];
-                Visual *target_visual = &drawer->visuals[camera->target];
+            if (drawer->parameters.draw_relative && drawer->camera->target != (usize) -1) {
+                Planet *target = &drawer->simulation->planets[drawer->camera->target];
+                Visual *target_visual = &drawer->visuals[drawer->camera->target];
                 point_a = Vector2Add(target->position, Vector2Subtract(point_a, target_visual->trail.positions[trail_nth_latest(&target_visual->trail, i)]));
                 point_b = Vector2Add(target->position, Vector2Subtract(point_b, target_visual->trail.positions[trail_nth_latest(&target_visual->trail, i + 1)]));
             }
@@ -98,27 +107,34 @@ void draw(const DrawState *drawer, const SimulationState *simulation, const Pred
         }
 
         if (drawer->parameters.draw_velocity) {
-            Vector2 target_velocity = (camera->target != (usize) -1 && drawer->parameters.draw_relative)
-                ? simulation->planets[camera->target].velocity
+            Vector2 target_velocity = (drawer->camera->target != (usize) -1 && drawer->parameters.draw_relative)
+                ? drawer->simulation->planets[drawer->camera->target].velocity
                 : Vector2Zero();
             DrawVector(planet->position, Vector2Subtract(planet->velocity, target_velocity), visual->color);
         }
     }
 
-    for (usize i = 0; i < arrlenu(predictor->predictions); i++) {
-        Visual *visual = &drawer->visuals[i];
+    if (new_planet != NULL && new_visual != NULL) {
+        DrawCircleLinesV(new_planet->position, planet_radius(drawer->simulation, new_planet->mass), new_visual->color);
+        Vector2 target_velocity = (drawer->camera->target != (usize) -1 && drawer->parameters.draw_relative)
+            ? drawer->simulation->planets[drawer->camera->target].velocity
+            : Vector2Zero();
+        DrawVector(new_planet->position, Vector2Subtract(new_planet->velocity, target_velocity), new_visual->color);
+    }
 
+    Prediction *predictions = drawer->predictor->predictions;
+    for (usize i = 0; i < arrlenu(predictions); i++) {
         for (usize step = 1; step < PREDICT_LENGTH; step++) {
-            Vector2 point_a = predictor->predictions[i].positions[step];
-            Vector2 point_b = predictor->predictions[i].positions[step - 1];
+            Vector2 point_a = predictions[i].positions[step];
+            Vector2 point_b = predictions[i].positions[step - 1];
 
-            if (drawer->parameters.draw_relative && camera->target != (usize) -1) {
-                Planet *target = &simulation->planets[camera->target];
-                point_a = Vector2Add(target->position, Vector2Subtract(point_a, predictor->predictions[camera->target].positions[step]));
-                point_b = Vector2Add(target->position, Vector2Subtract(point_b, predictor->predictions[camera->target].positions[step - 1]));
+            if (drawer->parameters.draw_relative && drawer->camera->target != (usize) -1) {
+                Planet *target = &drawer->simulation->planets[drawer->camera->target];
+                point_a = Vector2Add(target->position, Vector2Subtract(point_a, predictions[drawer->camera->target].positions[step]));
+                point_b = Vector2Add(target->position, Vector2Subtract(point_b, predictions[drawer->camera->target].positions[step - 1]));
             }
 
-            Color color = visual->color;
+            Color color = (i < arrlenu(drawer->visuals)) ? drawer->visuals[i].color : new_visual->color;
             color.a = 256 * (PREDICT_LENGTH - step) / (3 * PREDICT_LENGTH);
             DrawLineV(point_a, point_b, color);
         }

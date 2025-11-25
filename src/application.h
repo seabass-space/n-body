@@ -30,10 +30,10 @@ void application_free(Application *application);
 
 void application_init(Application *application) {
     simulation_init(&application->simulation);
-    predictor_init(&application->predictor);
-    draw_init(&application->drawer);
-    camera_init(&application->camera);
-    gui_init(&application->gui);
+    predictor_init(&application->predictor, &application->simulation);
+    camera_init(&application->camera, &application->simulation);
+    draw_init(&application->drawer, &application->simulation, &application->predictor, &application->camera);
+    gui_init(&application->gui, &application->simulation.parameters, &application->drawer.parameters);
 }
 
 void input_click(Application *application);
@@ -49,22 +49,33 @@ void application_input(Application *application) {
 
 void application_update(Application *application, f32 delta_time) {
     if (!application->gui.paused) simulation_update(&application->simulation, delta_time);
-    camera_update(&application->camera, &application->simulation, delta_time);
-    predictor_update(&application->predictor, &application->simulation, delta_time);
+    camera_update(&application->camera, delta_time);
+
+    Vector2 mouse = GetScreenToWorld2D(GetMousePosition(), application->camera.rl_camera);
+    Vector2 dragged_velocity = Vector2Subtract(application->input.new_planet.position, mouse);
+    Planet *new_planet = (application->gui.create && Vector2LengthSqr(dragged_velocity) > 1.0)
+        ? &application->input.new_planet
+        : NULL;
+    predictor_update(&application->predictor, new_planet, delta_time);
 }
 
-void draw_input(Application *application);
 void application_draw(Application *application) {
+    Planet *new_planet = (application->gui.create)
+        ? &application->input.new_planet
+        : NULL;
+    Visual *new_visual = (application->gui.create)
+        ? &application->input.new_visual
+        : NULL;
+
     // draw
     BeginDrawing();
     ClearBackground(BLACK);
 
     BeginMode2D(application->camera.rl_camera);
-    draw(&application->drawer, &application->simulation, &application->predictor, &application->camera);
-    draw_input(application);
+    draw_all(&application->drawer, new_planet, new_visual);
     EndMode2D();
 
-    gui_draw(&application->gui, &application->simulation.parameters, &application->drawer.parameters);
+    gui_draw(&application->gui);
     EndDrawing();
 }
 
@@ -118,7 +129,7 @@ void input_create(Application *application) {
     if (CheckCollisionPointRec(GetMousePosition(), application->gui.layout[0])) return;
     Vector2 mouse = GetScreenToWorld2D(GetMousePosition(), application->camera.rl_camera);
 
-    Planet *creation = &application->input.new_planet;
+    Planet *planet = &application->input.new_planet;
     Visual *visual = &application->input.new_visual;
 
     if (GetMouseWheelMove() != 0) {
@@ -133,28 +144,28 @@ void input_create(Application *application) {
         ? application->simulation.planets[application->camera.target].velocity
         : Vector2Zero();
 
-    creation->mass = application->gui.mass;
-    creation->movable = application->gui.movable;
+    planet->mass = application->gui.mass;
+    planet->movable = application->gui.movable;
     visual->color = application->gui.color;
 
     static Vector2 relative_position = (Vector2) { 0.0, 0.0 };
     if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) relative_position = Vector2Subtract(mouse, target_position);
     if (IsMouseButtonDown(MOUSE_BUTTON_LEFT)) {
-        Vector2 dragged_velocity = Vector2Subtract(creation->position, mouse);
-        creation->velocity = Vector2Add(dragged_velocity, target_velocity);
-        creation->position = Vector2Add(relative_position, target_position);
+        Vector2 dragged_velocity = Vector2Subtract(planet->position, mouse);
+        planet->velocity = Vector2Add(dragged_velocity, target_velocity);
+        planet->position = Vector2Add(relative_position, target_position);
     } else if (!IsMouseButtonReleased(MOUSE_BUTTON_LEFT)) {
-        creation->position = mouse;
-        creation->velocity = target_velocity;
+        planet->position = mouse;
+        planet->velocity = target_velocity;
     }
 
     if (IsMouseButtonReleased(MOUSE_BUTTON_LEFT)) {
-        arrpush(application->simulation.planets, *creation);
+        arrpush(application->simulation.planets, *planet);
         arrpush(application->drawer.visuals, *visual);
-        arrpush(application->predictor.predictions, (Prediction) { 0 });
+        // arrpush(application->predictor.predictions, (Prediction) { 0 });
 
-        creation->velocity = Vector2Zero();
-        creation->position = mouse;
+        planet->velocity = Vector2Zero();
+        planet->position = mouse;
 
         static usize color_index = 0;
         static const Color colors[] = {
@@ -197,19 +208,6 @@ void input_camera(Application *application) {
             camera->rl_camera.target = mouse_world_position;
         }
     }
-}
-
-void draw_input(Application *application) {
-    if (!application->gui.create) return;
-    Planet *planet = &application->input.new_planet;
-    Visual *visual = &application->input.new_visual;
-
-    DrawCircleLinesV(planet->position, planet_radius(&application->simulation, planet->mass), visual->color);
-
-    Vector2 target_velocity = (application->camera.target != (usize) -1 && application->drawer.parameters.draw_relative)
-        ? application->simulation.planets[application->camera.target].velocity
-        : Vector2Zero();
-    DrawVector(planet->position, Vector2Subtract(planet->velocity, target_velocity), visual->color);
 }
 
 #endif

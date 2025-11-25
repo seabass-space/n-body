@@ -13,30 +13,36 @@ typedef struct {
 
 typedef struct {
     Prediction *predictions;
+    const SimulationState *simulation;
 } PredictorState;
 
-void predictor_init(PredictorState *predictor);
-void predictor_update(PredictorState *predictor, SimulationState *simulation, f32 delta_time);
+void predictor_init(PredictorState *predictor, const SimulationState *simulation);
+void predictor_update(PredictorState *predictor, Planet *additional_planet, f32 delta_time);
 
 #ifdef PREDICTOR_IMPLEMENTATION
 
-void predictor_init(PredictorState *predictor) {
+void predictor_init(PredictorState *predictor, const SimulationState *simulation) {
     if (predictor->predictions != NULL) {
         arrfree(predictor->predictions);
         predictor->predictions = NULL;
     }
+
+    predictor->simulation = simulation;
 }
 
-void predictor_update(PredictorState *predictor, SimulationState *simulation, f32 delta_time) {
+void predictor_update(PredictorState *predictor, Planet *new_planet, f32 delta_time) {
     SimulationState simulation_copy = (SimulationState) {
-        .parameters = simulation->parameters,
+        .parameters = predictor->simulation->parameters,
         .planets = NULL
     };
 
-    arrsetcap(simulation_copy.planets, arrlen(simulation->planets));
-    for (usize i = 0; i < arrlenu(simulation->planets); i++) {
-        arrpush(simulation_copy.planets, simulation->planets[i]);
+    arrsetcap(simulation_copy.planets, arrlen(predictor->simulation->planets));
+    for (usize i = 0; i < arrlenu(predictor->simulation->planets); i++) {
+        arrpush(simulation_copy.planets, predictor->simulation->planets[i]);
     }
+
+    if (new_planet != NULL) arrpush(simulation_copy.planets, *new_planet);
+    arrsetlen(predictor->predictions, arrlen(simulation_copy.planets));
 
     for (usize step = 0; step < PREDICT_LENGTH; step++) {
         simulation_update(&simulation_copy, delta_time);

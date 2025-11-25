@@ -30,15 +30,18 @@ typedef struct {
     bool movable;
     bool create;
     bool previous_create;
+
+    SimulationParameters *simulation;
+    DrawParameters *drawer;
 } GUIState;
 
-void gui_init(GUIState *gui);
-void gui_draw(GUIState *gui, SimulationParameters *simulation, DrawParameters *drawer);
+void gui_init(GUIState *gui, SimulationParameters *simulation, DrawParameters *drawer);
+void gui_draw(GUIState *gui);
 
 #ifdef GUI_IMPLEMENTATION
 
 void update_layout(GUIState *state);
-void gui_init(GUIState *gui) {
+void gui_init(GUIState *gui, SimulationParameters *simulation, DrawParameters *drawer) {
     GuiLoadStyleDark();
     gui->anchor = (Vector2){ 24, 24 },
     gui->minimized = false,
@@ -52,10 +55,13 @@ void gui_init(GUIState *gui) {
     gui->create = false,
     gui->previous_create = false,
 
+    gui->simulation = simulation;
+    gui->drawer = drawer;
+
     update_layout(gui);
 }
 
-void gui_draw(GUIState *gui, SimulationParameters *simulation, DrawParameters *drawer) {
+void gui_draw(GUIState *gui) {
     gui->previous_create = gui->create;
 
     if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && !gui->moving) {
@@ -101,20 +107,20 @@ void gui_draw(GUIState *gui, SimulationParameters *simulation, DrawParameters *d
         GuiToggle(gui->layout[3], "Pause", &gui->paused);
 
         GuiGroupBox(gui->layout[4], "Simulation Parameters");
-        GuiSlider(gui->layout[5], "Gravity", NULL, &simulation->gravity, GRAVITY_MIN, GRAVITY_MAX);
-        GuiSlider(gui->layout[6], "Density", NULL, &simulation->density, DENSITY_MIN, DENSITY_MAX);
-        GuiSlider(gui->layout[7], "Softening", NULL, &simulation->softening, SOFTENING_MIN, SOFTENING_MAX);
-        GuiToggleGroup(gui->layout[8], "Euler;Verlet;RK4", (int*) &simulation->integrator);
-        GuiToggleGroup(gui->layout[9], "None;Merge;Elastic", (int*) &simulation->collisions);
-        GuiToggleGroup(gui->layout[10], "Direct;Barnes-Hut", (int*) &simulation->barnes_hut);
+        GuiSlider(gui->layout[5], "Gravity", NULL, &gui->simulation->gravity, GRAVITY_MIN, GRAVITY_MAX);
+        GuiSlider(gui->layout[6], "Density", NULL, &gui->simulation->density, DENSITY_MIN, DENSITY_MAX);
+        GuiSlider(gui->layout[7], "Softening", NULL, &gui->simulation->softening, SOFTENING_MIN, SOFTENING_MAX);
+        GuiToggleGroup(gui->layout[8], "Euler;Verlet;RK4", (int*) &gui->simulation->integrator);
+        GuiToggleGroup(gui->layout[9], "None;Merge;Elastic", (int*) &gui->simulation->collisions);
+        GuiToggleGroup(gui->layout[10], "Direct;Barnes-Hut", (int*) &gui->simulation->barnes_hut);
 
         GuiGroupBox(gui->layout[11], "Drawing Controls");
-        GuiSliderBar(gui->layout[12], "Trail Length", NULL, &drawer->trail, TRAIL_MIN, TRAIL_MAX);
-        GuiCheckBox(gui->layout[13], "Relative Trail", &drawer->draw_relative);
-        GuiCheckBox(gui->layout[14], "Draw Field Grid", &drawer->draw_field_grid);
-        GuiCheckBox(gui->layout[15], "Draw Velocity", &drawer->draw_velocity);
-        GuiCheckBox(gui->layout[16], "Draw Net Force", &drawer->draw_net_force);
-        GuiCheckBox(gui->layout[17], "Draw Forces", &drawer->draw_forces);
+        GuiSliderBar(gui->layout[12], "Trail Length", NULL, &gui->drawer->trail, TRAIL_MIN, TRAIL_MAX);
+        GuiCheckBox(gui->layout[13], "Relative Trail", &gui->drawer->draw_relative);
+        GuiCheckBox(gui->layout[14], "Draw Field Grid", &gui->drawer->draw_field_grid);
+        GuiCheckBox(gui->layout[15], "Draw Velocity", &gui->drawer->draw_velocity);
+        GuiCheckBox(gui->layout[16], "Draw Net Force", &gui->drawer->draw_net_force);
+        GuiCheckBox(gui->layout[17], "Draw Forces", &gui->drawer->draw_forces);
 
         GuiGroupBox(gui->layout[18], "New / Edit Body");
         GuiColorPicker(gui->layout[19], NULL, &gui->color);

@@ -10,21 +10,25 @@ typedef struct {
     Camera2D rl_camera;
     f32 zoom_target;
     usize target;
+
+    const SimulationState *simulation;
 } CameraState;
 
-void camera_init(CameraState *camera);
-void camera_update(CameraState *camera, SimulationState *simulation, f32 delta_time);
+void camera_init(CameraState *camera, const SimulationState *simulation);
+void camera_update(CameraState *camera, f32 delta_time);
 
 #ifdef CAMERA_IMPLEMENTATION
 
-void camera_init(CameraState *camera) {
+void camera_init(CameraState *camera, const SimulationState *simulation) {
     camera->rl_camera = (Camera2D) { .zoom = 1.0 };
     camera->zoom_target = 1.0;
     camera->target = (usize) -1;
+
+    camera->simulation = simulation;
 }
 
 Vector2 Vector2ExpDecay(Vector2 a, Vector2 b, f32 decay, f32 delta_time);
-void camera_update(CameraState *camera, SimulationState *simulation, f32 delta_time) {
+void camera_update(CameraState *camera, f32 delta_time) {
     #define CAMERA_SMOOTHING 12.0
 
     Camera2D *rl_camera = &camera->rl_camera;
@@ -35,7 +39,7 @@ void camera_update(CameraState *camera, SimulationState *simulation, f32 delta_t
     if (camera->target != (usize) -1) {
         rl_camera->target = Vector2ExpDecay(
             rl_camera->target,
-            simulation->planets[camera->target].position,
+            camera->simulation->planets[camera->target].position,
             CAMERA_SMOOTHING,
             delta_time
         );

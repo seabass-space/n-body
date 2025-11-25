@@ -72,6 +72,7 @@ void collide_planets(SimulationState *simulation);
 
 void simulation_update(SimulationState *simulation, f32 delta_time) {
     for (usize i = 0; i < arrlenu(simulation->planets); i++) {
+        if (!simulation->planets[i].movable) continue;
         switch (simulation->parameters.integrator) {
             case EULER:
                 integrate_euler(simulation, i, delta_time);

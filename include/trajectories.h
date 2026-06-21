@@ -8,17 +8,18 @@ typedef struct Simulation Simulation;
 typedef struct Ghost Ghost;
 
 typedef struct Trajectories {
-    SDL_GPUComputePipeline *pipeline;
+    SDL_GPUComputePipeline *integrators[3];
     SDL_GPUComputePipeline *ghost_pipeline;
     GPUArray positions;
     GPUArray velocities;
     SDL_GPUBuffer *ghost;
-    u32 body_count;
     bool enabled;
 } Trajectories;
 
 SDL_AppResult trajectories_init(Trajectories *trajectories, SDL_GPUDevice *gpu);
-u32 trajectories_add_body(Trajectories *trajectories, SDL_GPUDevice *gpu, SDL_GPUCopyPass *copy_pass, HMM_Vec2 position);
+
+void trajectories_add_body(Trajectories *trajectories, SDL_GPUDevice *gpu, SDL_GPUCopyPass *copy_pass,
+                           HMM_Vec2 position);
 typedef struct {
     SDL_GPUCommandBuffer *command_buffer;
     SDL_GPUComputePass *compute_pass;

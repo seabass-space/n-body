@@ -69,17 +69,15 @@ SDL_AppResult graphics_init(Graphics *gfx, SDL_GPUDevice *gpu, SDL_Window *windo
     return SDL_APP_CONTINUE;
 }
 
-u32 graphics_add_body(Graphics *gfx, SDL_GPUDevice *gpu, SDL_GPUCopyPass *copy_pass, SDL_FColor *color) {
+void graphics_add_body(Graphics *gfx, SDL_GPUDevice *gpu, SDL_GPUCopyPass *copy_pass, SDL_FColor *color) {
     AppendGPUArrays(gpu, copy_pass, &(AppendGPUArrayBinding) {
         .array = &gfx->colors,
         .source = (u8 *) color,
         .size = sizeof(SDL_FColor)
     }, 1);
-
-    return gfx->body_count++;
 }
 
-static void graphics_uniform_camera(SDL_GPUCommandBuffer *command_buffer, const Camera *cam, const u32 slot);
+static void graphics_uniform_camera(SDL_GPUCommandBuffer *command_buffer, const Camera *cam, u32 slot);
 typedef struct {
     SDL_GPUCommandBuffer *command_buffer;
     const SimulationOptions *sim;
@@ -96,8 +94,8 @@ typedef struct {
     const Trajectories *trajectories;
 } GraphicsGhostDrawInfo;
 static void graphics_ghost_draw(const Graphics *gfx, const Ghost *ghost, const GraphicsGhostDrawInfo *info);
-static void graphics_trails_draw(const Graphics *gfx, const Trails *trails, SDL_GPURenderPass *render_pass);
-static void graphics_trajectories_draw(const Graphics *gfx, const Trajectories *trajectories, SDL_GPURenderPass *render_pass);
+static void graphics_trails_draw(const Graphics *gfx, const Trails *trails, const Simulation *sim, SDL_GPURenderPass *render_pass);
+static void graphics_trajectories_draw(const Graphics *gfx, const Trajectories *trajectories, const Simulation *sim, SDL_GPURenderPass *render_pass);
 static void graphics_gui_draw(SDL_GPUCommandBuffer *command_buffer, SDL_GPUTexture *swapchain);
 
 void graphics_draw(const Graphics *gfx, const GraphicsDrawInfo *info) {
@@ -130,8 +128,8 @@ void graphics_draw(const Graphics *gfx, const GraphicsDrawInfo *info) {
         .render_pass = render_pass,
         .trajectories = info->trajectories
     });
-    graphics_trails_draw(gfx, info->trails, render_pass);
-    graphics_trajectories_draw(gfx, info->trajectories, render_pass);
+    graphics_trails_draw(gfx, info->trails, info->sim, render_pass);
+    graphics_trajectories_draw(gfx, info->trajectories, info->sim, render_pass);
     SDL_EndGPURenderPass(render_pass);
 
     graphics_gui_draw(info->command_buffer, swapchain);
@@ -179,7 +177,7 @@ static void graphics_ghost_draw(const Graphics *gfx, const Ghost *ghost, const G
     SDL_BindGPUGraphicsPipeline(info->render_pass, gfx->ghost_body_pipeline);
 
     // TODO: can we create a "body" inside Ghost to avoid copy?
-    struct {
+    const struct {
         SDL_FColor color;
         HMM_Vec2 position;
         f32 mass;
@@ -202,26 +200,26 @@ static void graphics_ghost_draw(const Graphics *gfx, const Ghost *ghost, const G
     }
 }
 
-static void graphics_trails_draw(const Graphics *gfx, const Trails *trails, SDL_GPURenderPass *render_pass) {
-    if (!trails->body_count) return;
+static void graphics_trails_draw(const Graphics *gfx, const Trails *trails, const Simulation *sim, SDL_GPURenderPass *render_pass) {
+    if (!sim->body_count) return;
     SDL_BindGPUGraphicsPipeline(render_pass, gfx->trail_pipeline);
     SDL_GPUBuffer *buffers[] = { trails->array.buffer, gfx->colors.buffer };
     SDL_BindGPUVertexStorageBuffers(render_pass, 0, buffers, sizeof(buffers) / sizeof(SDL_GPUBuffer *));
     SDL_DrawGPUPrimitives(
         render_pass,
-        TRAIL_LENGTH, trails->body_count,
+        TRAIL_LENGTH, sim->body_count,
         0, 0
     );
 }
 
-static void graphics_trajectories_draw(const Graphics *gfx, const Trajectories *trajectories, SDL_GPURenderPass *render_pass) {
-    if (!trajectories->enabled) return;
+static void graphics_trajectories_draw(const Graphics *gfx, const Trajectories *trajectories, const Simulation *sim, SDL_GPURenderPass *render_pass) {
+    if (!trajectories->enabled || !sim->body_count) return;
     SDL_BindGPUGraphicsPipeline(render_pass, gfx->trajectory_pipeline);
     SDL_GPUBuffer *buffers[] = { trajectories->positions.buffer, gfx->colors.buffer };
     SDL_BindGPUVertexStorageBuffers(render_pass, 0, buffers, sizeof(buffers) / sizeof(SDL_GPUBuffer *));
     SDL_DrawGPUPrimitives(
         render_pass,
-        PREDICTION_LENGTH, trajectories->body_count,
+        PREDICTION_LENGTH, sim->body_count,
         0, 0
     );
 }

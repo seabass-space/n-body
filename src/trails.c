@@ -13,7 +13,7 @@ SDL_AppResult trails_init(Trails *trails, SDL_GPUDevice *gpu) {
     return SDL_APP_CONTINUE;
 }
 
-u32 trails_add_body(Trails *trails, SDL_GPUDevice *gpu, SDL_GPUCopyPass *copy_pass, const HMM_Vec2 position) {
+void trails_add_body(Trails *trails, SDL_GPUDevice *gpu, SDL_GPUCopyPass *copy_pass, const HMM_Vec2 position) {
     HMM_Vec2 trail[TRAIL_LENGTH];
     for (usize i = 0; i < TRAIL_LENGTH; i++) trail[i] = position;
 
@@ -22,12 +22,10 @@ u32 trails_add_body(Trails *trails, SDL_GPUDevice *gpu, SDL_GPUCopyPass *copy_pa
         .source = (u8 *) &trail,
         .size = TRAIL_SIZE
     }, 1);
-
-    return trails->body_count++;
 }
 
 void trails_update(Trails *trails, SDL_GPUCommandBuffer *command_buffer, SDL_GPUComputePass *compute_pass, const Simulation *sim) {
-    if (sim->options.paused) return;
+    if (sim->options.paused || !sim->body_count) return;
     trails->frame = (trails->frame + 1) % TRAIL_LENGTH;
     SDL_PushGPUComputeUniformData(command_buffer, 0, &trails->frame, sizeof(u32));
 

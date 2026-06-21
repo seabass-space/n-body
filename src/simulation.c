@@ -46,7 +46,7 @@ u32 simulation_add_body(Simulation *sim, SDL_GPUDevice *gpu, SDL_GPUCopyPass *co
 }
 
 void simulation_update(const Simulation *sim, SDL_GPUCommandBuffer *command_buffer, SDL_GPUComputePass *compute_pass, const f32 delta_time) {
-    if (sim->options.paused) return;
+    if (sim->options.paused || !sim->body_count) return;
 
     const struct {
         u32 body_count;

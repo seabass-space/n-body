@@ -20,7 +20,6 @@ typedef struct {
 
 typedef struct Graphics {
     GraphicsOptions options;
-    u32 body_count;
     SDL_GPUGraphicsPipeline *body_pipeline;
     SDL_GPUGraphicsPipeline *trail_pipeline;
     SDL_GPUGraphicsPipeline *trajectory_pipeline;
@@ -35,7 +34,7 @@ typedef struct {
     SDL_FColor color;
 } GraphicsAddBodyInfo;
 
-u32 graphics_add_body(Graphics *gfx, SDL_GPUDevice *gpu, SDL_GPUCopyPass *copy_pass, SDL_FColor *color);
+void graphics_add_body(Graphics *gfx, SDL_GPUDevice *gpu, SDL_GPUCopyPass *copy_pass, SDL_FColor *color);
 typedef struct {
     SDL_Window *window;
     SDL_GPUDevice *gpu;

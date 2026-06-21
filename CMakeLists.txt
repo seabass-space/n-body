@@ -1,18 +1,13 @@
 cmake_minimum_required(VERSION 3.16)
 project(n-body LANGUAGES C CXX)
 
-include(FetchContent)
-set(FETCHCONTENT_UPDATES_DISCONNECTED ON)
-
-#set(CMAKE_C_STANDARD 99)
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
-if (NOT Python_EXECUTABLE)
-    message(STATUS "Defaulting to project's Python environment")
-    set(Python_EXECUTABLE "${CMAKE_CURRENT_SOURCE_DIR}/.venv/bin/python3" CACHE STRING "" FORCE)
-endif()
 
-# n-body
+include(FetchContent)
+set(FETCHCONTENT_UPDATES_DISCONNECTED ON)
+find_package(Python)
+
 add_executable(${PROJECT_NAME} WIN32
     src/main.c
     src/simulation.c
@@ -36,13 +31,13 @@ add_executable(${PROJECT_NAME} WIN32
 target_include_directories(${PROJECT_NAME} PRIVATE lib include)
 target_compile_options(${PROJECT_NAME} PRIVATE -Wall -Wextra -Wpedantic)
 
-target_compile_options(${PROJECT_NAME} PRIVATE
-    $<$<AND:$<CONFIG:Debug>,$<CXX_COMPILER_ID:Clang,GNU>>:-fsanitize=address>
-)
-
-target_link_options(${PROJECT_NAME} PRIVATE
-    $<$<AND:$<CONFIG:Debug>,$<CXX_COMPILER_ID:Clang,GNU>>:-fsanitize=address>
-)
+if (CMAKE_CXX_COMPILER_ID MATCHES "Clang|GNU")
+    message(STATUS "AddressSanitizer is supported")
+    target_compile_options(${PROJECT_NAME} INTERFACE $<$<CONFIG:Debug>:-fsanitize=address -fno-omit-frame-pointer>)
+    target_link_options(${PROJECT_NAME} INTERFACE $<$<CONFIG:Debug>:-fsanitize=address>)
+else()
+    message(STATUS "AddressSanitizer not supported")
+endif()
 
 # shaders
 set(SHADER_INPUT_DIR "${CMAKE_CURRENT_SOURCE_DIR}/src/shaders")
@@ -82,7 +77,6 @@ FetchContent_Declare(
 )
 
 FetchContent_MakeAvailable(spirv_cross)
-add_library(spirv_cross_c ALIAS spirv-cross-c)
 
 FetchContent_Declare(
     SDL_shadercross
@@ -91,11 +85,20 @@ FetchContent_Declare(
 )
 
 set(SDLSHADERCROSS_DXC OFF CACHE BOOL "" FORCE)
-set(SDLSHADERCROSS_SPIRVCROSS_SHARED OFF CACHE BOOL "" FORCE)
+set(SDLSHADERCROSS_VENDORED ON CACHE BOOL "" FORCE)
 FetchContent_MakeAvailable(SDL_shadercross)
 
-target_link_libraries(${PROJECT_NAME} PRIVATE SDL3::SDL3-static SDL3_shadercross-static)
-target_include_directories(${PROJECT_NAME} PRIVATE "${SDL3_SOURCE_DIR}/include" "${SDL_shadercross_SOURCE_DIR}/include")
+target_link_libraries(
+    ${PROJECT_NAME} PRIVATE
+    SDL3::SDL3
+    SDL3_shadercross-shared
+)
+
+target_include_directories(
+    ${PROJECT_NAME} PRIVATE
+    "${sdl3_SOURCE_DIR}/include"
+    "${sdl_shadercross_SOURCE_DIR}/include"
+)
 
 # Dear ImGui + dear_bindings
 FetchContent_Declare(
@@ -145,5 +148,5 @@ target_include_directories(imgui PUBLIC
     "${imgui_SOURCE_DIR}"
     "${imgui_SOURCE_DIR}/backends"
     "${dear_bindings_SOURCE_DIR}/generated"
-    "${SDL3_SOURCE_DIR}/include"
+    "${sdl3_SOURCE_DIR}/include"
 )

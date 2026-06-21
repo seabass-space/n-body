@@ -103,7 +103,7 @@ SDL_AppResult SDL_AppIterate(void *appstate) {
             .ghost = &app->ghost,
             .delta_time = delta_time
         });
-        // FIXME: why does changing this to use &info break everything?
+
         accumulator -= app->options.fixed_delta_time;
     }
 

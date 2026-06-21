@@ -20,7 +20,7 @@ void ghost_update(Ghost *ghost, SDL_GPUDevice *gpu, const Simulation *sim, const
     HMM_Vec2 target_position = HMM_V2(0.0f, 0.0f);
     HMM_Vec2 target_velocity = HMM_V2(0.0f, 0.0f);
     if (cam->target != (u32) -1) {
-        ReadGPUBufferBinding bindings[] = {
+        const ReadGPUBufferBinding bindings[] = {
             {
                 .buffer = sim->positions.buffer,
                 .buffer_offset = cam->target * sizeof(HMM_Vec2),

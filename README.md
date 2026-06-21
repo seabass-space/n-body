@@ -55,11 +55,13 @@ An interactive N-Body simulator for exploring Newtonian gravity! Can be used for
     ```
 
 ## Todo!
-1. Barnes Hut optimization
+
+1. <s>Barnes Hut optimization</s> way to complicated for compute shaders (for me small brain anyway)
 2. Normalize constants
 3. Gravitational field visualizer
    - field lines, equipotential lines, test mass motion
 4. Test mass/satellite exploration
    - find a way of visualizing Hohmann Transfers, Interplanetary Transport Networks (and manifolds?)
 5. Save/load system
+6. Forces visualizations for Lagrange Points
 

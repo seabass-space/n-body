@@ -3,7 +3,7 @@
 const uint PREDICTION_LENGTH = 2048;
 layout (std430, set = 0, binding = 0) buffer TrajectoryPositions { vec2 r[][PREDICTION_LENGTH]; };
 layout (std430, set = 0, binding = 1) buffer TrajectoryVelocities { vec2 v[]; };
-layout (std430, set = 0, binding = 2) buffer TrajectoryGhost { vec2 _padding1; vec2 r_g[PREDICTION_LENGTH]; };
+layout (std430, set = 0, binding = 2) readonly buffer TrajectoryGhost { vec2 _padding1; vec2 r_g[PREDICTION_LENGTH]; };
 layout (std430, set = 0, binding = 3) readonly buffer Positions { vec2 r_0[]; };
 layout (std430, set = 0, binding = 4) readonly buffer Velocities { vec2 v_0[]; };
 layout (std430, set = 0, binding = 5) readonly buffer Masses { float m[]; };
@@ -50,7 +50,7 @@ void main() {
         r[i][frame] = r_0[i];
         v[i] = v_0[i];
     } else {
-            v[i] += gravity(i, r[i][frame - 1], frame - 1) * dt;
-            r[i][frame] = r[i][frame - 1] + v[i] * dt;
+        v[i] += gravity(i, r[i][frame - 1], frame - 1) * dt;
+        r[i][frame] = r[i][frame - 1] + v[i] * dt;
     }
 }

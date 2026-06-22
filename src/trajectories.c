@@ -48,7 +48,7 @@ void trajectories_add_body(Trajectories *trajectories, SDL_GPUDevice *gpu, SDL_G
 }
 
 void trajectories_update(const Trajectories *trajectories, const TrajectoriesUpdateInfo *info) {
-    if (!trajectories->enabled) return;
+    if (!trajectories->enabled || !(info->sim->body_count || info->ghost->enabled)) return;
     const struct {
         u32 count;
         f32 gravity;
@@ -93,8 +93,10 @@ void trajectories_update(const Trajectories *trajectories, const TrajectoriesUpd
         SDL_PushGPUComputeUniformData(info->command_buffer, 2, &i, sizeof(i));
         SDL_BindGPUComputePipeline(info->compute_pass, integrator);
         SDL_DispatchGPUCompute(info->compute_pass, info->sim->body_count, 1, 1);
-        SDL_BindGPUComputePipeline(info->compute_pass, trajectories->ghost_pipeline);
-        SDL_DispatchGPUCompute(info->compute_pass, 1, 1, 1);
+        if (info->ghost->enabled) {
+            SDL_BindGPUComputePipeline(info->compute_pass, trajectories->ghost_pipeline);
+            SDL_DispatchGPUCompute(info->compute_pass, 1, 1, 1);
+        }
     }
 }
 

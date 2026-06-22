@@ -1,8 +1,8 @@
 #version 460
 
 const uint PREDICTION_LENGTH = 2048;
-layout (std430, set = 0, binding = 0) buffer TrajectoryPositions { vec2 r[][PREDICTION_LENGTH]; };
-layout (std430, set = 0, binding = 1) buffer TrajectoryVelocities { vec2 v[]; };
+layout (std430, set = 0, binding = 0) readonly buffer TrajectoryPositions { vec2 r[][PREDICTION_LENGTH]; };
+layout (std430, set = 0, binding = 1) readonly buffer TrajectoryVelocities { vec2 v[]; };
 layout (std430, set = 0, binding = 2) buffer TrajectoryGhost { vec2 v_g; vec2 r_g[PREDICTION_LENGTH]; };
 layout (std430, set = 0, binding = 3) readonly buffer Positions { vec2 r_0[]; };
 layout (std430, set = 0, binding = 4) readonly buffer Velocities { vec2 v_0[]; };
@@ -35,15 +35,6 @@ vec2 gravity(vec2 r_self, uint frame) {
 
     return net_a;
 }
-
-struct State {
-    vec2 r;
-    vec2 v;
-};
-
-State add(State a, State b) { return State(a.r + b.r, a.v + b.v); }
-State scale(State y, float a) { return State(a * y.r, a * y.v); }
-State f(State y) { return State(y.v, gravity(y.r, frame - 1)); }
 
 layout (local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
 void main() {

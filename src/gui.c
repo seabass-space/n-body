@@ -80,7 +80,6 @@ static void gui_controls(ApplicationOptions *app, SimulationOptions *sim, Trajec
         const char *integrators[] = { "Semi-Implicit Euler", "Velocity Verlet", "Runge-Kutta 4" };
         ImGui_ComboChar("Integrator", (i32*) &sim->integrator, integrators, IM_COUNTOF(integrators));
         HelpMarker("The algorithm used to calculate the new velocity and position of each body given the acceleration. Euler is the most performant, Verlet is more accurate while still conserving energy, and RK4 is the most accurate across short time spans but does not conserve energy.");
-
         ImGui_Checkbox("Predict Body Motion", &trajectories->enabled);
         HelpMarker("Simulate planets into the future and draw their trajectories (expensive compute!)");
 
@@ -92,6 +91,8 @@ static void gui_controls(ApplicationOptions *app, SimulationOptions *sim, Trajec
         HelpMarker("The thickness of the outline around non-movable bodies.");
         ImGui_SliderFloat("Trail brightness", &gfx->trail_brightness, 0.0f, 1.0f);
         HelpMarker("The brightness of the trail that each body leaves behind as it moves.");
+        ImGui_Checkbox("Draw Gravitational Potential", &gfx->potential);
+        HelpMarker("The gravitational field represented with color intensity.");
     }
 }
 

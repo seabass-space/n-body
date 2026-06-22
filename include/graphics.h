@@ -16,6 +16,7 @@ typedef struct {
     f32 movable_outline;
     f32 static_outline;
     f32 trail_brightness;
+    bool potential;
 } GraphicsOptions;
 
 typedef struct Graphics {
@@ -25,6 +26,7 @@ typedef struct Graphics {
     SDL_GPUGraphicsPipeline *trajectory_pipeline;
     SDL_GPUGraphicsPipeline *ghost_body_pipeline;
     SDL_GPUGraphicsPipeline *ghost_trajectory_pipeline;
+    SDL_GPUGraphicsPipeline *potential_pipeline;
     GPUArray colors;
 } Graphics;
 

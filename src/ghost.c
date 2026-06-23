@@ -22,7 +22,7 @@ void ghost_update(Ghost *ghost, SDL_GPUDevice *gpu, const Simulation *sim, const
     HMM_Vec2 target_position = HMM_V2(0.0f, 0.0f);
     HMM_Vec2 target_velocity = HMM_V2(0.0f, 0.0f);
     if (cam->target != (u32) -1) {
-        const ReadGPUBufferBinding bindings[] = {
+        ReadFromGPUBufferNow(gpu, (ReadGPUBufferBinding[]) {
             {
                 .buffer = sim->positions.buffer,
                 .buffer_offset = cam->target * sizeof(HMM_Vec2),
@@ -35,9 +35,7 @@ void ghost_update(Ghost *ghost, SDL_GPUDevice *gpu, const Simulation *sim, const
                 .destination = (u8*) &target_velocity,
                 .size = sizeof(HMM_Vec2)
             },
-        };
-
-        ReadFromGPUBufferNow(gpu, bindings, 2);
+        }, 2);
     }
 
     const HMM_Vec2 mouse = mouse_world_position(cam);

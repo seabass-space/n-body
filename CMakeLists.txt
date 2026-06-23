@@ -31,14 +31,12 @@ add_executable(${PROJECT_NAME} WIN32
 )
 
 target_include_directories(${PROJECT_NAME} PRIVATE lib include)
-target_compile_options(${PROJECT_NAME} PRIVATE -Wall -Wextra -Wpedantic)
 
 if (CMAKE_CXX_COMPILER_ID MATCHES "Clang|GNU")
-    message(STATUS "AddressSanitizer is supported")
+    message(STATUS "Clang|GNU compiler found - enabling ASAN and warnings.")
+    target_compile_options(${PROJECT_NAME} PRIVATE -Wall -Wextra -Wpedantic)
     target_compile_options(${PROJECT_NAME} INTERFACE $<$<CONFIG:Debug>:-fsanitize=address -fno-omit-frame-pointer>)
     target_link_options(${PROJECT_NAME} INTERFACE $<$<CONFIG:Debug>:-fsanitize=address>)
-else()
-    message(STATUS "AddressSanitizer not supported")
 endif()
 
 # shaders

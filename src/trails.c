@@ -8,7 +8,7 @@ SDL_AppResult trails_init(Trails *trails, SDL_GPUDevice *gpu) {
     trails->pipeline = CreateGPUComputePipeline(gpu, "shaders/trail.comp.spv");
     if (!trails->pipeline) panic("Could not create trails pipeline!");
 
-    trails->array = CreateGPUArray(gpu, TRAIL_SIZE, SDL_GPU_BUFFERUSAGE_COMPUTE_STORAGE_READ | SDL_GPU_BUFFERUSAGE_COMPUTE_STORAGE_WRITE | SDL_GPU_BUFFERUSAGE_GRAPHICS_STORAGE_READ);
+    trails->array = CreateGPUArray(gpu, TRAIL_SIZE, SDL_GPU_BUFFERUSAGE_READWRITEDRAW);
     if (!trails->array.buffer) panic("Could not create trails array!");
     return SDL_APP_CONTINUE;
 }
@@ -30,8 +30,7 @@ void trails_update(Trails *trails, SDL_GPUCommandBuffer *command_buffer, SDL_GPU
     SDL_PushGPUComputeUniformData(command_buffer, 0, &trails->frame, sizeof(u32));
 
     SDL_BindGPUComputePipeline(compute_pass, trails->pipeline);
-    SDL_GPUBuffer *buffers[] = { trails->array.buffer, sim->positions.buffer };
-    SDL_BindGPUComputeStorageBuffers(compute_pass, 0, buffers, 2);
+    SDL_BindGPUComputeStorageBuffers(compute_pass, 0, (SDL_GPUBuffer*[]) { trails->array.buffer, sim->positions.buffer }, 2);
     SDL_DispatchGPUCompute(compute_pass, sim->body_count, 1, 1);
 }
 

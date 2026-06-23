@@ -27,6 +27,8 @@ void main() {
     gl_Position = orthographic * view * vec4(position, 0.0, 1.0);
 
     float alpha = (brightness / 2.0) * (1.0 - float(gl_VertexIndex) / float(PREDICTION_LENGTH));
-    out_color = vec4(colors[gl_InstanceIndex].rgb, alpha);
+    // TODO: proper implementation with awaiting buffer
+    // out_color = vec4(colors[gl_InstanceIndex].rgb, alpha);
+    out_color = vec4(1, 1, 1, alpha);
 }
 

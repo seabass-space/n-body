@@ -25,7 +25,6 @@ typedef struct Graphics {
     SDL_GPUGraphicsPipeline *trail_pipeline;
     SDL_GPUGraphicsPipeline *trajectory_pipeline;
     SDL_GPUGraphicsPipeline *ghost_body_pipeline;
-    SDL_GPUGraphicsPipeline *ghost_trajectory_pipeline;
     SDL_GPUGraphicsPipeline *potential_pipeline;
     GPUArray colors;
 } Graphics;

@@ -36,7 +36,6 @@ void camera_update(Camera *cam, SDL_Window *window, SDL_GPUDevice *gpu, const Si
     );
 }
 
-HMM_Vec2 mouse_world_position(const Camera *cam);
 void camera_mouse(Camera *cam, const SDL_Event *event, const Ghost *ghost) {
     HMM_Vec2 mouse_delta = { 0 };
     if (SDL_GetRelativeMouseState(&mouse_delta.X, &mouse_delta.Y) & SDL_BUTTON_RMASK) {

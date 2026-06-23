@@ -83,20 +83,14 @@ SDL_AppResult SDL_AppIterate(void *appstate) {
     last_tick = current_tick;
 
     SDL_GPUCommandBuffer *command_buffer = SDL_AcquireGPUCommandBuffer(app->gpu);
-    const SDL_GPUStorageBufferReadWriteBinding bindings[] = {
+    SDL_GPUComputePass *compute_pass = SDL_BeginGPUComputePass(command_buffer, NULL, 0, (SDL_GPUStorageBufferReadWriteBinding[]) {
         { .buffer = app->sim.positions.buffer, .cycle = false },
         { .buffer = app->sim.velocities.buffer, .cycle = false },
         { .buffer = app->trails.array.buffer, .cycle = false },
         { .buffer = app->trajectories.positions.buffer, .cycle = false },
         { .buffer = app->trajectories.velocities.buffer, .cycle = false },
         { .buffer = app->trajectories.ghost, .cycle = false }
-    };
-
-    SDL_GPUComputePass *compute_pass = SDL_BeginGPUComputePass(
-        command_buffer,
-        NULL, 0,
-        bindings, sizeof(bindings) / sizeof(SDL_GPUStorageBufferReadWriteBinding)
-    );
+    }, 6);
 
     accumulator += delta_time;
     while (accumulator >= app->options.fixed_delta_time) {
@@ -116,6 +110,12 @@ SDL_AppResult SDL_AppIterate(void *appstate) {
     SDL_EndGPUComputePass(compute_pass);
     camera_update(&app->cam, app->window, app->gpu, &app->sim);
     ghost_update(&app->ghost, app->gpu, &app->sim, &app->cam);
+    trajectories_ghost_update(&app->trajectories, &(TrajectoriesGhostUpdateInfo) {
+        .ghost = &app->ghost,
+        .sim = &app->sim,
+        .gpu = app->gpu,
+        .command_buffer = command_buffer,
+    });
 
     gui_update(&(GuiUpdateInfo) {
         .app = &app->options,

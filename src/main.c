@@ -56,13 +56,19 @@ SDL_AppResult SDL_AppInit(void **appstate, const int argc, char **argv) {
     SDL_SetGPUSwapchainParameters(app->gpu, app->window, SDL_GPU_SWAPCHAINCOMPOSITION_SDR, SDL_GPU_PRESENTMODE_VSYNC);
 
     // initialize modules
+    SDL_GPUCommandBuffer *command_buffer = SDL_AcquireGPUCommandBuffer(app->gpu);
+    SDL_GPUCopyPass *copy_pass = SDL_BeginGPUCopyPass(command_buffer);
+
     if (simulation_init(&app->sim, app->gpu) != 0) panic("Failed to initialize simulation!");
-    ghost_init(&app->ghost);
     if (trails_init(&app->trails, app->gpu) != 0) panic("Failed to initialize trail module!");
     if (trajectories_init(&app->trajectories, app->gpu) != 0) panic("Failed to initialize trajectory module!");
+    ghost_init(&app->ghost, &app->trajectories, app->gpu, copy_pass);
     camera_init(&app->cam);
     if (graphics_init(&app->gfx, app->gpu, app->window) != 0) panic("Failed to initialize graphics!");
     gui_init(&app->gui, app->window, app->gpu);
+
+    SDL_EndGPUCopyPass(copy_pass);
+    SDL_SubmitGPUCommandBuffer(command_buffer);
     return SDL_APP_CONTINUE;
 }
 
@@ -170,7 +176,7 @@ static void add_body(Application *app, const SimulationAddBodyInfo *sim_info, SD
     SDL_GPUCopyPass *copy_pass = SDL_BeginGPUCopyPass(command_buffer);
     simulation_add_body(&app->sim, app->gpu, copy_pass, sim_info);
     trails_add_body(&app->trails, app->gpu, copy_pass, sim_info->position);
-    trajectories_add_body(&app->trajectories, app->gpu, copy_pass, sim_info->position);
+    trajectories_add_body(&app->trajectories, app->gpu, copy_pass);
     graphics_add_body(&app->gfx, app->gpu, copy_pass, color);
     SDL_EndGPUCopyPass(copy_pass);
     SDL_SubmitGPUCommandBuffer(command_buffer);

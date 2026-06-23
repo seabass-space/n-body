@@ -1,11 +1,13 @@
 #include "ghost.h"
 #include "constants.h"
 #include "simulation.h"
+#include "trajectories.h"
 #include "camera.h"
 
 #include "sdl_utils.h"
 
-void ghost_init(Ghost *ghost) {
+void ghost_init(Ghost *ghost, Trajectories *trajectories, SDL_GPUDevice *gpu, SDL_GPUCopyPass *copy_pass) {
+    trajectories_add_body(trajectories, gpu, copy_pass);
     *ghost = (Ghost) {
         .enabled = false,
         .mass = MASS_DEFAULT,

@@ -13,6 +13,7 @@ add_executable(${PROJECT_NAME} WIN32
     src/simulation.c
     src/trails.c
     src/trajectories.c
+    src/field.c
     src/camera.c
     src/ghost.c
     src/graphics.c
@@ -22,6 +23,7 @@ add_executable(${PROJECT_NAME} WIN32
     include/simulation.h
     include/trails.h
     include/trajectories.h
+    include/field.h
     include/camera.h
     include/ghost.h
     include/graphics.h
@@ -61,60 +63,24 @@ add_custom_target(compile_shaders ALL DEPENDS "${SHADER_STAMP}")
 add_dependencies(${PROJECT_NAME} compile_shaders)
 
 # SDL3 + SDL_shadercross
-FetchContent_Declare(
-    SDL3
-    GIT_REPOSITORY "https://github.com/libsdl-org/SDL.git"
-    GIT_TAG "release-3.4.0"
-)
+FetchContent_Declare(SDL3 GIT_REPOSITORY "https://github.com/libsdl-org/SDL.git" GIT_TAG "release-3.4.0")
+FetchContent_Declare(SDL_shadercross GIT_REPOSITORY "https://github.com/libsdl-org/SDL_shadercross.git" GIT_TAG "main")
 
-set(SDL_STATIC ON CACHE BOOL "" FORCE)
+set(SDL_STATIC ON)
+set(SDL_SHARED OFF)
 FetchContent_MakeAvailable(SDL3)
 
-FetchContent_Declare(
-    spirv_cross
-    GIT_REPOSITORY "https://github.com/KhronosGroup/SPIRV-Cross.git"
-    GIT_TAG "main"
-)
-
-FetchContent_MakeAvailable(spirv_cross)
-
-FetchContent_Declare(
-    SDL_shadercross
-    GIT_REPOSITORY "https://github.com/libsdl-org/SDL_shadercross.git"
-    GIT_TAG "main"
-)
-
-set(SDLSHADERCROSS_DXC OFF CACHE BOOL "" FORCE)
-set(SDLSHADERCROSS_VENDORED ON CACHE BOOL "" FORCE)
+set(SDLSHADERCROSS_DXC OFF)
+set(SDLSHADERCROSS_VENDORED ON)
 FetchContent_MakeAvailable(SDL_shadercross)
 
-target_link_libraries(
-    ${PROJECT_NAME} PRIVATE
-    SDL3::SDL3
-    SDL3_shadercross-shared
-)
-
-target_include_directories(
-    ${PROJECT_NAME} PRIVATE
-    "${sdl3_SOURCE_DIR}/include"
-    "${sdl_shadercross_SOURCE_DIR}/include"
-)
+target_link_libraries(${PROJECT_NAME} PRIVATE SDL3::SDL3 SDL3_shadercross-static)
+target_include_directories(${PROJECT_NAME} PRIVATE "${sdl3_SOURCE_DIR}/include" "${sdl_shadercross_SOURCE_DIR}/include")
 
 # Dear ImGui + dear_bindings
-FetchContent_Declare(
-    imgui
-    GIT_REPOSITORY "https://github.com/ocornut/imgui.git"
-    GIT_TAG "docking"
-)
-
+FetchContent_Declare(imgui GIT_REPOSITORY "https://github.com/ocornut/imgui.git" GIT_TAG "docking")
+FetchContent_Declare(dear_bindings GIT_REPOSITORY "https://github.com/dearimgui/dear_bindings.git" GIT_TAG "main")
 FetchContent_MakeAvailable(imgui)
-
-FetchContent_Declare(
-    dear_bindings
-    GIT_REPOSITORY "https://github.com/dearimgui/dear_bindings.git"
-    GIT_TAG "main"
-)
-
 FetchContent_MakeAvailable(dear_bindings)
 
 file(MAKE_DIRECTORY "${dear_bindings_SOURCE_DIR}/generated/backends")
@@ -144,9 +110,14 @@ add_library(imgui STATIC
 )
 
 target_link_libraries(${PROJECT_NAME} PRIVATE imgui)
-target_include_directories(imgui PUBLIC
+target_include_directories(imgui PRIVATE
     "${imgui_SOURCE_DIR}"
     "${imgui_SOURCE_DIR}/backends"
     "${dear_bindings_SOURCE_DIR}/generated"
     "${sdl3_SOURCE_DIR}/include"
+)
+
+target_include_directories(${PROJECT_NAME} PRIVATE
+    "${imgui_SOURCE_DIR}"
+    "${dear_bindings_SOURCE_DIR}/generated"
 )

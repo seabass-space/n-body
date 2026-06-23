@@ -9,15 +9,10 @@
 #define PREDICTION_SIZE sizeof(HMM_Vec2) * PREDICTION_LENGTH
 
 SDL_AppResult trajectories_init(Trajectories *trajectories, SDL_GPUDevice *gpu) {
+    trajectories->pipeline = CreateGPUComputePipeline(gpu, "shaders/trajectory.comp.spv");
     trajectories->ghost_pipeline = CreateGPUComputePipeline(gpu, "shaders/ghost_trajectory.comp.spv");
-    SDL_GPUComputePipeline *euler = CreateGPUComputePipeline(gpu, "shaders/trajectory/euler.comp.spv");
-    SDL_GPUComputePipeline *verlet = CreateGPUComputePipeline(gpu, "shaders/trajectory/verlet.comp.spv");
-    SDL_GPUComputePipeline *runge_kutta = CreateGPUComputePipeline(gpu, "shaders/trajectory/runge_kutta.comp.spv");
-    if (!trajectories->ghost_pipeline) panic("Failed to create ghost trajectories compute pipeline!");
-    if (!euler) panic("Failed to create trajectory euler compute pipeline!");
-    if (!verlet) panic("Failed to create trajectory verlet compute pipeline!");
-    if (!runge_kutta) panic("Failed to create trajectory runge kutta compute pipeline!");
-    memcpy(trajectories->integrators, (SDL_GPUComputePipeline*[3]){ euler, verlet, runge_kutta }, sizeof(trajectories->integrators));
+    if (!trajectories->pipeline) panic("Failed to create trajectories compute pipeline!");
+    if (!trajectories->ghost_pipeline) panic("Failed to create ghost trajectory compute pipeline!");
 
     trajectories->positions = CreateGPUArray(gpu, PREDICTION_SIZE, SDL_GPU_BUFFERUSAGE_COMPUTE_STORAGE_READ | SDL_GPU_BUFFERUSAGE_COMPUTE_STORAGE_WRITE | SDL_GPU_BUFFERUSAGE_GRAPHICS_STORAGE_READ);
     trajectories->velocities = CreateGPUArray(gpu, sizeof(HMM_Vec2), SDL_GPU_BUFFERUSAGE_COMPUTE_STORAGE_READ | SDL_GPU_BUFFERUSAGE_COMPUTE_STORAGE_WRITE | SDL_GPU_BUFFERUSAGE_GRAPHICS_STORAGE_READ);
@@ -34,17 +29,11 @@ SDL_AppResult trajectories_init(Trajectories *trajectories, SDL_GPUDevice *gpu) 
     return SDL_APP_CONTINUE;
 }
 
-void trajectories_add_body(Trajectories *trajectories, SDL_GPUDevice *gpu, SDL_GPUCopyPass *copy_pass,
-                           const HMM_Vec2 position) {
-    HMM_Vec2 trajectory[PREDICTION_LENGTH];
-    for (usize i = 0; i < PREDICTION_LENGTH; i++) trajectory[i] = position;
-
-    const AppendGPUArrayBinding bindings[] = {
-        { .array = &trajectories->positions, .source = (u8 *) &trajectory, .size = PREDICTION_SIZE },
-        { .array = &trajectories->velocities, .source = (u8 *) &trajectory, .size = sizeof(HMM_Vec2) },
-    };
-
-    AppendGPUArrays(gpu, copy_pass, bindings, sizeof(bindings) / sizeof(AppendGPUArrayBinding));
+void trajectories_add_body(Trajectories *trajectories, SDL_GPUDevice *gpu, SDL_GPUCopyPass *copy_pass) {
+    ExpandGPUArray(&trajectories->positions, gpu, copy_pass, PREDICTION_SIZE);
+    ExpandGPUArray(&trajectories->velocities, gpu, copy_pass, sizeof(HMM_Vec2));
+    trajectories->positions.used += PREDICTION_SIZE;
+    trajectories->velocities.used += sizeof(HMM_Vec2);
 }
 
 void trajectories_update(const Trajectories *trajectories, const TrajectoriesUpdateInfo *info) {
@@ -88,20 +77,15 @@ void trajectories_update(const Trajectories *trajectories, const TrajectoriesUpd
 
     SDL_BindGPUComputeStorageBuffers(info->compute_pass, 0, buffers, sizeof(buffers) / sizeof(SDL_GPUBuffer *));
 
-    SDL_GPUComputePipeline *integrator = trajectories->integrators[info->sim->options.integrator];
     for (u32 i = 0; i < PREDICTION_LENGTH; i++) {
         SDL_PushGPUComputeUniformData(info->command_buffer, 2, &i, sizeof(i));
-        SDL_BindGPUComputePipeline(info->compute_pass, integrator);
+        SDL_BindGPUComputePipeline(info->compute_pass, trajectories->pipeline);
         SDL_DispatchGPUCompute(info->compute_pass, info->sim->body_count, 1, 1);
-        if (info->ghost->enabled) {
-            SDL_BindGPUComputePipeline(info->compute_pass, trajectories->ghost_pipeline);
-            SDL_DispatchGPUCompute(info->compute_pass, 1, 1, 1);
-        }
     }
 }
 
 void trajectories_free(const Trajectories *trajectories, SDL_GPUDevice *gpu) {
-    for (u8 i = 0; i < 3; i++) SDL_ReleaseGPUComputePipeline(gpu, trajectories->integrators[i]);
+    SDL_ReleaseGPUComputePipeline(gpu, trajectories->pipeline);
     SDL_ReleaseGPUComputePipeline(gpu, trajectories->ghost_pipeline);
     SDL_ReleaseGPUBuffer(gpu, trajectories->positions.buffer);
     SDL_ReleaseGPUBuffer(gpu, trajectories->velocities.buffer);

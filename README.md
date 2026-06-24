@@ -4,21 +4,19 @@ A-N-other Body Simulator? An exploration of Newtonian gravity, weirdness of non-
 
 (Named for the organized chaos of gravitational systems)
 
-<p align="center" width="100%">
-   <video src="https://github.com/user-attachments/assets/76de4eaa-7438-4ae6-95b4-dbc0b031be2d" width="80%" controls></video>
-</p>
+https://github.com/user-attachments/assets/76de4eaa-7438-4ae6-95b4-dbc0b031be2d
 
 ## Features
 
 * Real-time, interactive gravity simulation
 
-   <video src="https://github.com/user-attachments/assets/ae43d7fb-a828-4cd9-a0aa-a5963fe4501a" width="500">
+   https://github.com/user-attachments/assets/ae43d7fb-a828-4cd9-a0aa-a5963fe4501a
   
    (Jupiter's checking in on those pesky terrestial planets)
 
 * GPU-accelerated integration and trajectory prediction
 
-   <video src="https://github.com/user-attachments/assets/714ef65e-b027-4944-b8f0-44fb457661b6" width="500">
+   https://github.com/user-attachments/assets/714ef65e-b027-4944-b8f0-44fb457661b6
 
 * Non-inertial reference frame visualizations
 

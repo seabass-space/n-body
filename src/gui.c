@@ -81,7 +81,7 @@ static void gui_controls(ApplicationOptions *app, SimulationOptions *sim, Trajec
         ImGui_ComboChar("Integrator", (i32*) &sim->integrator, integrators, IM_COUNTOF(integrators));
         HelpMarker("The algorithm used to calculate the new velocity and position of each body given the acceleration. Euler is the most performant, Verlet is more accurate while still conserving energy, and RK4 is the most accurate across short time spans but does not conserve energy.");
         ImGui_Checkbox("Predict Body Motion", &trajectories->enabled);
-        HelpMarker("Simulate planets into the future and draw their trajectories (expensive compute!)");
+        HelpMarker("Simulate planets into the future and draw their trajectories (expensive compute for lots of bodies!)");
 
         ImGui_SeparatorText("Drawing Options");
         ImGui_ColorEdit3("Space Color", (f32*) &gfx->clear_color, 0);

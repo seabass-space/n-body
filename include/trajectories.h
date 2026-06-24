@@ -10,7 +10,6 @@ typedef struct Trajectories {
     SDL_GPUComputePipeline *pipeline;
     GPUArray positions;
     GPUArray velocities;
-    SDL_GPUBuffer *ghost;
     bool enabled;
 } Trajectories;
 

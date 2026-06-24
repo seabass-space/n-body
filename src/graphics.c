@@ -79,14 +79,16 @@ void graphics_add_body(Graphics *gfx, SDL_GPUDevice *gpu, SDL_GPUCopyPass *copy_
 static void graphics_uniform_camera(SDL_GPUCommandBuffer *command_buffer, const Camera *cam, u32 slot);
 typedef struct {
     SDL_GPUCommandBuffer *command_buffer;
-    const SimulationOptions *sim;
+    const Simulation *sim;
     const Trails *trails;
     const Camera *cam;
     const u32 slot;
 } GraphicsUniformConsantsInfo;
 static void graphics_uniform_constants(const Graphics *gfx, const GraphicsUniformConsantsInfo *info);
+static void graphics_uniform_ghost(SDL_GPUCommandBuffer *command_buffer, const Ghost *ghost, u32 slot);
+
 static void graphics_simulation_draw(const Graphics *gfx, const Simulation *sim, SDL_GPURenderPass *render_pass);
-static void graphics_ghost_draw(const Graphics *gfx, const Ghost *ghost, SDL_GPUCommandBuffer *command_buffer, SDL_GPURenderPass *render_pass);
+static void graphics_ghost_draw(const Graphics *gfx, const Ghost *ghost, SDL_GPURenderPass *render_pass);
 static void graphics_trails_draw(const Graphics *gfx, const Trails *trails, const Simulation *sim, SDL_GPURenderPass *render_pass);
 static void graphics_trajectories_draw(const Graphics *gfx, const Trajectories *trajectories, const Simulation *sim, const Ghost *ghost, SDL_GPURenderPass *render_pass);
 static void graphics_potential_draw(const Graphics *gfx, const Simulation *sim, SDL_GPURenderPass *render_pass, SDL_GPUCommandBuffer *command_buffer);
@@ -102,11 +104,12 @@ void graphics_draw(const Graphics *gfx, const GraphicsDrawInfo *info) {
     graphics_uniform_camera(info->command_buffer, info->cam, 0);
     graphics_uniform_constants(gfx, &(GraphicsUniformConsantsInfo) {
         .command_buffer = info->command_buffer,
-        .sim = &info->sim->options,
+        .sim = info->sim,
         .trails = info->trails,
         .cam = info->cam,
         .slot = 1
     });
+    graphics_uniform_ghost(info->command_buffer, info->ghost, 2);
 
     SDL_GPURenderPass *render_pass = SDL_BeginGPURenderPass(info->command_buffer, &(SDL_GPUColorTargetInfo) {
         .clear_color = gfx->options.clear_color,
@@ -117,7 +120,7 @@ void graphics_draw(const Graphics *gfx, const GraphicsDrawInfo *info) {
 
     graphics_potential_draw(gfx, info->sim, render_pass, info->command_buffer);
     graphics_simulation_draw(gfx, info->sim, render_pass);
-    graphics_ghost_draw(gfx, info->ghost, info->command_buffer, render_pass);
+    graphics_ghost_draw(gfx, info->ghost, render_pass);
     graphics_trails_draw(gfx, info->trails, info->sim, render_pass);
     graphics_trajectories_draw(gfx, info->trajectories, info->sim, info->ghost, render_pass);
     SDL_EndGPURenderPass(render_pass);
@@ -125,29 +128,48 @@ void graphics_draw(const Graphics *gfx, const GraphicsDrawInfo *info) {
     graphics_gui_draw(info->command_buffer, swapchain);
 }
 
-static void graphics_uniform_camera(SDL_GPUCommandBuffer *command_buffer, const Camera *cam, const u32 slot) {
+static void graphics_uniform_camera(SDL_GPUCommandBuffer *command_buffer, const Camera *cam, u32 slot) {
     const HMM_Mat4 matrices[] = { cam->orthographic, cam->view };
     SDL_PushGPUVertexUniformData(command_buffer, slot, &matrices, sizeof(matrices));
 }
 
 static void graphics_uniform_constants(const Graphics *gfx, const GraphicsUniformConsantsInfo *info) {
+    // TODO: find a better way to do this like what the heck
     const struct {
         f32 density;
         f32 movable_outline;
         f32 static_outline;
         u32 trail_target;
         f32 trail_brightness;
+        u32 body_count;
         u32 trail_frame;
     } constants = {
-        info->sim->density,
+        info->sim->options.density,
         gfx->options.movable_outline,
         gfx->options.static_outline,
         info->cam->target,
         gfx->options.trail_brightness,
+        info->sim->body_count,
         info->trails->frame,
     };
 
     SDL_PushGPUVertexUniformData(info->command_buffer, info->slot, &constants, sizeof(constants));
+}
+
+static void graphics_uniform_ghost(SDL_GPUCommandBuffer *command_buffer, const Ghost *ghost, u32 slot) {
+    const struct {
+        SDL_FColor color;
+        HMM_Vec2 position;
+        f32 mass;
+        f32 movable;
+    } ghost_info = {
+        ghost->color,
+        ghost->position,
+        ghost->mass,
+        ghost->movable
+    };
+
+    SDL_PushGPUVertexUniformData(command_buffer, slot, &ghost_info, sizeof(ghost_info));
 }
 
 static void graphics_simulation_draw(const Graphics *gfx, const Simulation *sim, SDL_GPURenderPass *render_pass) {
@@ -162,28 +184,9 @@ static void graphics_simulation_draw(const Graphics *gfx, const Simulation *sim,
     SDL_DrawGPUPrimitives( render_pass, 4, sim->body_count, 0, 0);
 }
 
-static void graphics_ghost_draw(
-    const Graphics *gfx,
-    const Ghost *ghost,
-    SDL_GPUCommandBuffer *command_buffer,
-    SDL_GPURenderPass *render_pass
-) {
+static void graphics_ghost_draw(const Graphics *gfx, const Ghost *ghost, SDL_GPURenderPass *render_pass) {
     if (!ghost->enabled) return;
     SDL_BindGPUGraphicsPipeline(render_pass, gfx->ghost_body_pipeline);
-
-    const struct {
-        SDL_FColor color;
-        HMM_Vec2 position;
-        f32 mass;
-        f32 movable;
-    } ghost_info = {
-        ghost->color,
-        ghost->position,
-        ghost->mass,
-        ghost->movable
-    };
-
-    SDL_PushGPUVertexUniformData(command_buffer, 2, &ghost_info, sizeof(ghost_info));
     SDL_DrawGPUPrimitives(render_pass, 4, 1, 0, 0);
 }
 

@@ -1,9 +1,10 @@
 #include "SDL3/SDL_video.h"
 #include "constants.h"
 #include "simulation.h"
-#include "ghost.h"
 #include "trails.h"
 #include "trajectories.h"
+#include "field.h"
+#include "ghost.h"
 #include "camera.h"
 #include "graphics.h"
 #include "gui.h"
@@ -24,9 +25,10 @@ typedef struct {
     SDL_GPUDevice *gpu;
 
     Simulation sim;
-    Ghost ghost;
     Trails trails;
     Trajectories trajectories;
+    Field field;
+    Ghost ghost;
     Camera cam;
     Graphics gfx;
     Gui gui;
@@ -50,7 +52,7 @@ SDL_AppResult SDL_AppInit(void **appstate, const int argc, char **argv) {
     SDL_SetLogPriority(SDL_LOG_CATEGORY_APPLICATION, SDL_LOG_PRIORITY_VERBOSE);
     SDL_SetLogPriority(SDL_LOG_CATEGORY_ERROR, SDL_LOG_PRIORITY_VERBOSE);
 
-    app->gpu = SDL_CreateGPUDevice(SDL_GPU_SHADERFORMAT_SPIRV | SDL_GPU_SHADERFORMAT_MSL, true, NULL);
+    app->gpu = SDL_CreateGPUDevice(SDL_GPU_SHADERFORMAT_SPIRV | SDL_GPU_SHADERFORMAT_MSL | SDL_GPU_SHADERFORMAT_DXIL, true, NULL);
     if (!app->gpu) panic("Failed to create GPU device!");
     if (!SDL_ClaimWindowForGPUDevice(app->gpu, app->window)) panic("Failed to claim window for GPU!");
     SDL_SetGPUSwapchainParameters(app->gpu, app->window, SDL_GPU_SWAPCHAINCOMPOSITION_SDR, SDL_GPU_PRESENTMODE_VSYNC);
@@ -62,6 +64,7 @@ SDL_AppResult SDL_AppInit(void **appstate, const int argc, char **argv) {
     if (simulation_init(&app->sim, app->gpu) != 0) panic("Failed to initialize simulation!");
     if (trails_init(&app->trails, app->gpu) != 0) panic("Failed to initialize trail module!");
     if (trajectories_init(&app->trajectories, app->gpu) != 0) panic("Failed to initialize trajectory module!");
+    if (field_init(&app->field, app->gpu) != 0) panic("Failed to initialize field line module!");
     ghost_init(&app->ghost, &app->trajectories, app->gpu, copy_pass);
     camera_init(&app->cam);
     if (graphics_init(&app->gfx, app->gpu, app->window) != 0) panic("Failed to initialize graphics!");
@@ -89,8 +92,7 @@ SDL_AppResult SDL_AppIterate(void *appstate) {
         { .buffer = app->trails.array.buffer, .cycle = false },
         { .buffer = app->trajectories.positions.buffer, .cycle = false },
         { .buffer = app->trajectories.velocities.buffer, .cycle = false },
-        { .buffer = app->trajectories.ghost, .cycle = false }
-    }, 6);
+    }, 5);
 
     accumulator += delta_time;
     while (accumulator >= app->options.fixed_delta_time) {
@@ -136,7 +138,7 @@ SDL_AppResult SDL_AppIterate(void *appstate) {
         .trajectories = &app->trajectories,
         .cam = &app->cam,
     });
-    
+
     SDL_SubmitGPUCommandBuffer(command_buffer);
 
     return SDL_APP_CONTINUE;
@@ -192,6 +194,7 @@ void SDL_AppQuit(void *appstate, const SDL_AppResult result) {
     simulation_free(&app->sim, app->gpu);
     trails_free(&app->trails, app->gpu);
     trajectories_free(&app->trajectories, app->gpu);
+    field_free(&app->field, app->gpu);
     graphics_free(&app->gfx, app->gpu);
     gui_free();
 

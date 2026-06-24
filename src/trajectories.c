@@ -14,14 +14,8 @@ SDL_AppResult trajectories_init(Trajectories *trajectories, SDL_GPUDevice *gpu) 
 
     trajectories->positions = CreateGPUArray(gpu, PREDICTION_SIZE, SDL_GPU_BUFFERUSAGE_READWRITEDRAW);
     trajectories->velocities = CreateGPUArray(gpu, sizeof(HMM_Vec2), SDL_GPU_BUFFERUSAGE_READWRITEDRAW);
-    trajectories->ghost = SDL_CreateGPUBuffer(gpu, &(SDL_GPUBufferCreateInfo) {
-        .size = sizeof(HMM_Vec2) + PREDICTION_SIZE,
-        .usage = SDL_GPU_BUFFERUSAGE_READWRITEDRAW
-    });
-
     if (!trajectories->positions.buffer) panic("Failed to create trajectory positions buffer!");
     if (!trajectories->velocities.buffer) panic("Failed to create trajectory velocities buffer!");
-    if (!trajectories->ghost) panic("Failed to create trajectories ghost buffer!");
 
     trajectories->enabled = true;
     return SDL_APP_CONTINUE;
@@ -98,5 +92,4 @@ void trajectories_free(const Trajectories *trajectories, SDL_GPUDevice *gpu) {
     SDL_ReleaseGPUComputePipeline(gpu, trajectories->pipeline);
     SDL_ReleaseGPUBuffer(gpu, trajectories->positions.buffer);
     SDL_ReleaseGPUBuffer(gpu, trajectories->velocities.buffer);
-    SDL_ReleaseGPUBuffer(gpu, trajectories->ghost);
 }

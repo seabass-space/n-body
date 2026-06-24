@@ -30,6 +30,8 @@
 // fixed (change is shaders as well)
 #define TRAIL_LENGTH 512
 #define PREDICTION_LENGTH 2048
+#define FIELD_LINE_LENGTH 1024
+#define FIELD_LINE_DENSITY 6
 
 #endif
 

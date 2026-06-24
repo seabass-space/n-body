@@ -15,6 +15,7 @@ layout (std140, set = 1, binding = 1) uniform Constants {
     vec3 _padding;
     uint target;
     float brightness;
+    float padding;
     uint frame;
 };
 

@@ -15,20 +15,20 @@ layout (std140, set = 1, binding = 1) uniform Constants {
     vec3 _padding;
     uint target;
     float brightness;
+    uint body_count;
 };
+
+layout (std140, set = 1, binding = 2) uniform Ghost { vec4 ghost; };
 
 void main() {
     vec2 position = positions[gl_InstanceIndex][gl_VertexIndex];
     if (target != uint(-1)) {
-        position += positions[target][0]
-            - positions[target][gl_VertexIndex];
+        position += positions[target][0] - positions[target][gl_VertexIndex];
     }
 
     gl_Position = orthographic * view * vec4(position, 0.0, 1.0);
 
+    vec4 color = (gl_InstanceIndex == body_count) ? ghost : colors[gl_InstanceIndex];
     float alpha = (brightness / 2.0) * (1.0 - float(gl_VertexIndex) / float(PREDICTION_LENGTH));
-    // TODO: proper implementation with awaiting buffer
-    // out_color = vec4(colors[gl_InstanceIndex].rgb, alpha);
-    out_color = vec4(1, 1, 1, alpha);
+     out_color = vec4(color.rgb, alpha);
 }
-

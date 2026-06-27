@@ -1,8 +1,9 @@
 #version 460
+#extension GL_ARB_shading_language_include : enable
+#include "../../../include/constants.h"
 
 layout (location = 0) out vec4 out_color;
 
-const uint PREDICTION_LENGTH = 2048;
 layout (std430, set = 0, binding = 0) readonly buffer Positions { vec2 positions[][PREDICTION_LENGTH]; };
 layout (std430, set = 0, binding = 1) readonly buffer Colors { vec4 colors[]; };
 

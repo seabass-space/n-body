@@ -2,6 +2,7 @@
 #include "constants.h"
 #include "simulation.h"
 #include "trajectories.h"
+#include "field.h"
 #include "camera.h"
 
 #include "sdl_utils.h"

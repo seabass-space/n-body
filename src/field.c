@@ -1,6 +1,6 @@
 #include "field.h"
-#include "simulation.h"
 #include "constants.h"
+#include "simulation.h"
 
 #include "HandmadeMath.h"
 
@@ -13,13 +13,17 @@ SDL_AppResult field_init(Field *field, SDL_GPUDevice *gpu) {
     if (!field->lines.buffer) panic("Failed to create field lines storage buffer!");
     if (!field->line_ids.buffer) panic("Failed to create field line IDs storage buffer!");
 
-    field->enabled = false;
     field->line_count = 0;
+    field->options = (FieldOptions) {
+        .line_step = FIELD_LINE_STEP_DEFAULT,
+        .line_volume = FIELD_LINE_VOLUME_DEFAULT
+    };
+
     return SDL_APP_CONTINUE;
 }
 
 void field_add_body(Field *field, const FieldAddBodyInfo *info) {
-    const u32 line_count = (u32) (info->mass / FIELD_LINE_VOLUME);
+    const u32 line_count = (u32) (info->mass / field->options.line_volume);
     const usize lines_size = line_count * FIELD_LINE_LENGTH * sizeof(HMM_Vec2);
     ExpandGPUArray(&field->lines, info->gpu, info->copy_pass, lines_size);
     field->lines.used += lines_size;
@@ -42,15 +46,19 @@ void field_update(
     SDL_GPUCommandBuffer *command_buffer,
     SDL_GPUComputePass *compute_pass
 ) {
-    if (!field->line_count || !field->enabled) return;
+    if (!field->line_count || !field->options.enabled) return;
     const struct {
         u32 body_count;
         f32 G;
         f32 ee;
+        f32 line_volume;
+        f32 line_step;
     } constants = {
         sim->body_count,
         sim->options.gravity,
         sim->options.softening,
+        field->options.line_volume,
+        field->options.line_step,
     };
 
     SDL_PushGPUComputeUniformData(command_buffer, 0, &constants, sizeof(constants));

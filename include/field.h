@@ -5,12 +5,18 @@
 
 typedef struct Simulation Simulation;
 
+typedef struct FieldOptions {
+    f32 line_volume;
+    f32 line_step;
+    bool enabled;
+} FieldOptions;
+
 typedef struct Field {
     SDL_GPUComputePipeline *pipeline;
     GPUArray lines;
     GPUArray line_ids;
     u32 line_count;
-    bool enabled;
+    FieldOptions options;
 } Field;
 
 SDL_AppResult field_init(Field *field, SDL_GPUDevice *gpu);

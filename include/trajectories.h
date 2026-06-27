@@ -6,11 +6,16 @@
 typedef struct Simulation Simulation;
 typedef struct Ghost Ghost;
 
+typedef struct TrajectoryOptions {
+    f32 delta_time_multiplier;
+    bool enabled;
+} TrajectoryOptions;
+
 typedef struct Trajectories {
     SDL_GPUComputePipeline *pipeline;
     GPUArray positions;
     GPUArray velocities;
-    bool enabled;
+    TrajectoryOptions options;
 } Trajectories;
 
 SDL_AppResult trajectories_init(Trajectories *trajectories, SDL_GPUDevice *gpu);
@@ -30,7 +35,7 @@ typedef struct {
     SDL_GPUCommandBuffer *command_buffer;
 } TrajectoriesGhostUpdateInfo;
 void trajectories_ghost_update(const Trajectories *trajectories, const TrajectoriesGhostUpdateInfo *info);
-    void trajectories_free(const Trajectories *trajectories, SDL_GPUDevice *gpu);
+void trajectories_free(const Trajectories *trajectories, SDL_GPUDevice *gpu);
 
 #endif
 

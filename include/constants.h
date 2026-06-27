@@ -1,11 +1,12 @@
 #ifndef N_BODY_CONSTANTS
 #define N_BODY_CONSTANTS
 
+#define TAU 6.2831
+
 // application defaults
 #define WIDTH_DEFAULT 1200
 #define HEIGHT_DEFAULT 900
 #define FIXED_DELTA_TIME_DEFAULT 0.01f
-#define PREDICTION_DELTA_TIME_MULTIPLIER 1
 #define EPSILON 1e-6f // TODO: turn into simulation parameter?
 #define MAX_ACCUMULATOR_TIME 0.25
 
@@ -18,7 +19,9 @@
 #define SOFTENING_DEFAULT 0.1f
 #define DENSITY_DEFAULT 0.001f
 #define INTEGRATOR_DEFAULT INTEGRATOR_EULER
-#define COLLISIONS_DEFAULT COLLISIONS_NONE
+#define TRAJECTORY_DELTA_TIME_MULTIPLIER_DEFAULT 1.0f
+#define FIELD_LINE_VOLUME_DEFAULT 5
+#define FIELD_LINE_STEP_DEFAULT 0.5
 
 // graphics defaults
 #define CLEAR_COLOR_DEFAULT (SDL_FColor) { 0.0f, 0.0f, 0.0f, 1.0f }
@@ -27,12 +30,10 @@
 #define STATIC_OUTLINE_DEFAULT 1.0f
 #define TRAIL_FADE_DEFAULT 1.0f
 
-// fixed (change is shaders as well)
+// fixed, compiled with shaders
 #define TRAIL_LENGTH 512
 #define PREDICTION_LENGTH 2048
 #define FIELD_LINE_LENGTH 1024
-#define FIELD_LINE_VOLUME 5
-#define FIELD_LINE_STEP 0.1
 
 #endif
 

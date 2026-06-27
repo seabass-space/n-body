@@ -1,6 +1,7 @@
 #version 460
+#extension GL_ARB_shading_language_include : enable
+#include "../../include/constants.h"
 
-const uint TRAIL_LENGTH = 512;
 layout (std430, set = 0, binding = 0) writeonly buffer Trails { vec2 trails[][TRAIL_LENGTH]; };
 layout (std430, set = 0, binding = 1) readonly buffer Positions { vec2 positions[]; };
 layout (std140, set = 2, binding = 0) uniform Frame { uint frame; };

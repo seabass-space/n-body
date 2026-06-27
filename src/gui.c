@@ -36,19 +36,22 @@ void gui_init(Gui *gui, SDL_Window *window, SDL_GPUDevice *gpu) {
 
 static void HelpMarker(const char *desc);
 static void gui_controls(SimulationOptions *sim, Ghost *ghost);
-static void gui_visualizations(GraphicsOptions *graphics, Trajectories *trajectories, Field *field);
-static void gui_options(ApplicationOptions *app, SimulationOptions *sim, Trajectories *trajectories, GraphicsOptions *gfx);
+static void gui_visualizations(GraphicsOptions *graphics, TrajectoryOptions *trajectories, FieldOptions *field);
+static void gui_options(ApplicationOptions *app, SimulationOptions *sim, GraphicsOptions *gfx);
 void gui_update(const GuiUpdateInfo *info) {
     cImGui_ImplSDLGPU3_NewFrame();
     cImGui_ImplSDL3_NewFrame();
     ImGui_NewFrame();
-    ImGui_Begin("N-Body Simulator", NULL, ImGuiWindowFlags_AlwaysAutoResize);
 
-    gui_controls(&info->sim->options, info->ghost);
-    gui_visualizations(&info->gfx->options, info->trajectories, info->field);
-    gui_options(info->app, &info->sim->options, info->trajectories, &info->gfx->options);
+    static bool open = true;
+    if (open) {
+        ImGui_Begin("HYENA: N-Body Simulator", &open, ImGuiWindowFlags_AlwaysAutoResize);
+        gui_controls(&info->sim->options, info->ghost);
+        gui_visualizations(&info->gfx->options, &info->trajectories->options, &info->field->options);
+        gui_options(info->app, &info->sim->options, &info->gfx->options);
+        ImGui_End();
+    }
 
-    ImGui_End();
     ImGui_Render();
 }
 
@@ -68,16 +71,28 @@ static void gui_controls(SimulationOptions *sim, Ghost *ghost) {
     }
 }
 
-static void gui_visualizations(GraphicsOptions *graphics, Trajectories *trajectories, Field *field) {
+static void gui_visualizations(GraphicsOptions *graphics, TrajectoryOptions *trajectories, FieldOptions *field) {
     if (ImGui_CollapsingHeader("Visualizations", ImGuiTreeNodeFlags_DefaultOpen)) {
         ImGui_Checkbox("Show body trails", &graphics->trails);
+        HelpMarker("Show where the bodies have been.");
+
         ImGui_Checkbox("Show body trajectories", &trajectories->enabled);
+        HelpMarker("Simulate bodies into the future and draw their trajectories (expensive compute for lots of bodies!)");
+        if (trajectories->enabled) ImGui_DragFloat("Trajectory Time Step Multiplier", &trajectories->delta_time_multiplier);
+
         ImGui_Checkbox("Show gravitational field", &field->enabled);
+        HelpMarker("The gravitational field represented with streamlines (expensive compute for lots of bodies!)");
+        if (field->enabled) {
+            ImGui_DragFloat("Field Line Volume", &field->line_volume);
+            ImGui_DragFloat("Field Line Step", &field->line_step);
+        }
+
         ImGui_Checkbox("Show gravitational potential", &graphics->potential);
+        HelpMarker("The gravitational potential represented with color intensity.");
     }
 }
 
-static void gui_options(ApplicationOptions *app, SimulationOptions *sim, Trajectories *trajectories, GraphicsOptions *gfx) {
+static void gui_options(ApplicationOptions *app, SimulationOptions *sim, GraphicsOptions *gfx) {
     if (ImGui_CollapsingHeader("Options", 0)) {
         ImGui_SeparatorText("Simulation Options");
         ImGui_DragFloat("Time Step", &app->fixed_delta_time);
@@ -90,8 +105,6 @@ static void gui_options(ApplicationOptions *app, SimulationOptions *sim, Traject
         const char *integrators[] = { "Semi-Implicit Euler", "Velocity Verlet", "Runge-Kutta 4" };
         ImGui_ComboChar("Integrator", (i32*) &sim->integrator, integrators, IM_COUNTOF(integrators));
         HelpMarker("The algorithm used to calculate the new velocity and position of each body given the acceleration. Euler is the most performant, Verlet is more accurate while still conserving energy, and RK4 is the most accurate across short time spans but does not conserve energy.");
-        ImGui_Checkbox("Predict Body Motion", &trajectories->enabled);
-        HelpMarker("Simulate planets into the future and draw their trajectories (expensive compute for lots of bodies!)");
 
         ImGui_SeparatorText("Drawing Options");
         ImGui_ColorEdit3("Space Color", (f32*) &gfx->clear_color, 0);
@@ -101,8 +114,6 @@ static void gui_options(ApplicationOptions *app, SimulationOptions *sim, Traject
         HelpMarker("The thickness of the outline around non-movable bodies.");
         ImGui_SliderFloat("Trail brightness", &gfx->trail_brightness, 0.0f, 1.0f);
         HelpMarker("The brightness of the trail that each body leaves behind as it moves.");
-        ImGui_Checkbox("Draw Gravitational Potential", &gfx->potential);
-        HelpMarker("The gravitational field represented with color intensity.");
     }
 }
 

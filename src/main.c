@@ -43,8 +43,12 @@ SDL_AppResult SDL_AppInit(void **appstate, const int argc, char **argv) {
     // initialize SDL3
     if (!SDL_Init(SDL_INIT_VIDEO | SDL_INIT_GAMEPAD)) panic("Failed to initialize SDL3!");
     const f32 main_scale = SDL_GetDisplayContentScale(SDL_GetPrimaryDisplay());
-    const SDL_WindowFlags window_flags = SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIGH_PIXEL_DENSITY;
-    app->window = SDL_CreateWindow("N-Body Simulation", (i32)(WIDTH_DEFAULT * main_scale), (i32)(HEIGHT_DEFAULT * main_scale), window_flags);
+    app->window = SDL_CreateWindow(
+        "N-Body Simulation",
+        (i32)(WIDTH_DEFAULT * main_scale),
+        (i32)(HEIGHT_DEFAULT * main_scale),
+        SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIGH_PIXEL_DENSITY
+    );
     if (!app->window) panic("Failed to create SDL window!");
     SDL_ShowWindow(app->window);
 
@@ -171,6 +175,8 @@ SDL_AppResult SDL_AppEvent(void *appstate, SDL_Event *event) {
     if (!app->gui.io->WantCaptureKeyboard) {
         camera_keyboard(&app->cam, event, &app->sim);
         ghost_keyboard(&app->ghost, event);
+        if (event->type == SDL_EVENT_KEY_DOWN && event->key.scancode == SDL_SCANCODE_SPACE)
+            app->sim.options.paused = !app->sim.options.paused;
     }
 
     return SDL_APP_CONTINUE;

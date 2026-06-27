@@ -20,7 +20,7 @@ https://github.com/user-attachments/assets/76de4eaa-7438-4ae6-95b4-dbc0b031be2d
 
 * Non-inertial reference frame visualizations
 
-* Gravitational potential visualization
+* Gravitational field line and potential visualizations
 
 * Implementation of 3 different integrators and deep simulation control
 
@@ -35,9 +35,11 @@ A secondary goal of the project is to explore central concepts in numerical anal
 ### Wishlist / Todo
 
 1. ~~Barnes Hut optimization~~ too complicated with compute shaders (for my brain anyway)
+2. Simulation stability
+   - double buffering !!
 2. Normalize constants, fix GUI
 3. Gravitational field visualizer
-   - field lines, equipotential lines, test mass motion
+   - ~~field lines~~, equipotential lines, test mass motion
 4. Satellite exploration
    - find a way of visualizing Hohmann Transfers (Interplanetary Transport Networks and manifolds?)
    - Lagrange point visualizations

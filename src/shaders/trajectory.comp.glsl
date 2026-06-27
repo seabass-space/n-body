@@ -1,6 +1,7 @@
 #version 460
+#extension GL_ARB_shading_language_include : enable
+#include "../../include/constants.h"
 
-const uint PREDICTION_LENGTH = 2048;
 layout (std430, set = 0, binding = 0) buffer TrajectoryPositions { vec2 r[][PREDICTION_LENGTH]; };
 layout (std430, set = 0, binding = 1) buffer TrajectoryVelocities { vec2 v[]; };
 layout (std430, set = 0, binding = 2) readonly buffer SimulationPositions { vec2 r_0[]; };

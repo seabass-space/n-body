@@ -222,7 +222,7 @@ static void graphics_trajectories_draw(
     const Ghost *ghost,
     SDL_GPURenderPass *render_pass
 ) {
-    if (!trajectories->enabled) return;
+    if (!trajectories->options.enabled) return;
     u32 trajectory_count = sim->body_count;
     if (ghost->enabled) trajectory_count += 1;
     if (!trajectory_count) return;
@@ -233,7 +233,7 @@ static void graphics_trajectories_draw(
 }
 
 static void graphics_field_draw(const Graphics *gfx, const Field *field, SDL_GPURenderPass *render_pass) {
-    if (!field->line_count || !field->enabled) return;
+    if (!field->line_count || !field->options.enabled) return;
     SDL_BindGPUGraphicsPipeline(render_pass, gfx->field_pipeline);
     SDL_BindGPUVertexStorageBuffers(render_pass, 0, (SDL_GPUBuffer*[]) {
         field->lines.buffer,

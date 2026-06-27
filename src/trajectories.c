@@ -17,7 +17,11 @@ SDL_AppResult trajectories_init(Trajectories *trajectories, SDL_GPUDevice *gpu) 
     if (!trajectories->positions.buffer) panic("Failed to create trajectory positions buffer!");
     if (!trajectories->velocities.buffer) panic("Failed to create trajectory velocities buffer!");
 
-    trajectories->enabled = true;
+    trajectories->options = (TrajectoryOptions) {
+        .delta_time_multiplier = TRAJECTORY_DELTA_TIME_MULTIPLIER_DEFAULT,
+        .enabled = true
+    };
+
     return SDL_APP_CONTINUE;
 }
 
@@ -49,7 +53,7 @@ void trajectories_ghost_update(const Trajectories *trajectories, const Trajector
 }
 
 void trajectories_update(const Trajectories *trajectories, const TrajectoriesUpdateInfo *info) {
-    if (!trajectories->enabled) return;
+    if (!trajectories->options.enabled) return;
     u32 trajectory_count = info->sim->body_count;
     if (info->ghost->enabled) trajectory_count += 1;
     if (!trajectory_count) return;
@@ -65,7 +69,7 @@ void trajectories_update(const Trajectories *trajectories, const TrajectoriesUpd
         info->sim->body_count,
         info->sim->options.gravity,
         info->sim->options.softening,
-        info->delta_time,
+        info->delta_time * trajectories->options.delta_time_multiplier,
         info->ghost->mass,
         info->ghost->enabled
     };

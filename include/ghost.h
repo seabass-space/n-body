@@ -12,6 +12,7 @@
 
 typedef struct Simulation Simulation;
 typedef struct Camera Camera;
+typedef struct Trajectories Trajectories;
 
 typedef struct Ghost {
     SDL_FColor color;

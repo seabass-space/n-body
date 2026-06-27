@@ -33,14 +33,19 @@ SDL_AppResult simulation_init(Simulation *sim, SDL_GPUDevice *gpu) {
     return SDL_APP_CONTINUE;
 }
 
-void simulation_add_body(Simulation *sim, SDL_GPUDevice *gpu, SDL_GPUCopyPass *copy_pass, const SimulationAddBodyInfo *body) {
+u32 simulation_add_body(
+    Simulation *sim,
+    SDL_GPUDevice *gpu,
+    SDL_GPUCopyPass *copy_pass,
+    const SimulationAddBodyInfo *body
+) {
     AppendGPUArrays(gpu, copy_pass, (AppendGPUArrayBinding[]) {
         { .array = &sim->positions, .source = (u8*) &body->position, .size = sizeof(HMM_Vec2) },
         { .array = &sim->velocities, .source = (u8*) &body->velocity, .size = sizeof(HMM_Vec2) },
         { .array = &sim->masses, .source = (u8*) &body->mass, .size = sizeof(f32) },
         { .array = &sim->movable, .source = (u8*) &(f32) { body->movable }, .size = sizeof(f32) },
     }, 4);
-    sim->body_count++;
+    return sim->body_count++;
 }
 
 void simulation_update(

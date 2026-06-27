@@ -42,7 +42,7 @@ def main():
                 "-o",
                 str(output_file),
             ], check=True)
-            print(f"Compiled {input_file} -> {output_file}")
+            # print(f"Compiled {input_file} -> {output_file}")
         except CalledProcessError:
             print(f"Error compiling shader at {input_file}")
             sys.exit(1)

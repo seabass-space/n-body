@@ -6,7 +6,12 @@
 
 #include "sdl_utils.h"
 
-void ghost_init(Ghost *ghost, Trajectories *trajectories, SDL_GPUDevice *gpu, SDL_GPUCopyPass *copy_pass) {
+void ghost_init(
+    Ghost *ghost,
+    Trajectories *trajectories,
+    SDL_GPUDevice *gpu,
+    SDL_GPUCopyPass *copy_pass
+) {
     trajectories_add_body(trajectories, gpu, copy_pass);
     *ghost = (Ghost) {
         .enabled = false,

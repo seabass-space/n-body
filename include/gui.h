@@ -5,6 +5,7 @@ typedef struct Simulation Simulation;
 typedef struct Camera Camera;
 typedef struct Ghost Ghost;
 typedef struct Trajectories Trajectories;
+typedef struct Field Field;
 typedef struct Graphics Graphics;
 
 #include <stdbool.h>
@@ -28,6 +29,7 @@ typedef struct {
     Simulation *sim;
     Ghost *ghost;
     Trajectories *trajectories;
+    Field *field;
     Camera *cam;
     Graphics *gfx;
 } GuiUpdateInfo;

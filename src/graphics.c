@@ -5,6 +5,7 @@
 #include "ghost.h"
 #include "trails.h"
 #include "trajectories.h"
+#include "field.h"
 #include "camera.h"
 
 #include "SDL3/SDL_gpu.h"
@@ -20,6 +21,7 @@ SDL_AppResult graphics_init(Graphics *gfx, SDL_GPUDevice *gpu, SDL_Window *windo
         .movable_outline = MOVABLE_OUTLINE_DEFAULT,
         .static_outline = STATIC_OUTLINE_DEFAULT,
         .trail_brightness = TRAIL_FADE_DEFAULT,
+        .trails = true,
         .potential = false
     };
 
@@ -51,6 +53,13 @@ SDL_AppResult graphics_init(Graphics *gfx, SDL_GPUDevice *gpu, SDL_Window *windo
         .primitive_type = SDL_GPU_PRIMITIVETYPE_TRIANGLESTRIP
     });
 
+    gfx->field_pipeline = CreateGPUGraphicsPipeline(gpu, &(CreateGPUGraphicsPipelineInfo) {
+        .window = window,
+        .vertex_shader_path = "shaders/graphics/field.vert.spv",
+        .fragment_shader_path = "shaders/graphics/solid.frag.spv",
+        .primitive_type = SDL_GPU_PRIMITIVETYPE_LINESTRIP
+    });
+
     gfx->potential_pipeline = CreateGPUGraphicsPipeline(gpu, &(CreateGPUGraphicsPipelineInfo) {
         .window = window,
         .vertex_shader_path = "shaders/graphics/screen.vert.spv",
@@ -61,7 +70,9 @@ SDL_AppResult graphics_init(Graphics *gfx, SDL_GPUDevice *gpu, SDL_Window *windo
     if (!gfx->body_pipeline) panic("Failed to create circle graphics pipeline!");
     if (!gfx->trail_pipeline) panic("Failed to create trail graphics pipeline!");
     if (!gfx->trajectory_pipeline) panic("Failed to create trail graphics pipeline!");
-    if (!gfx->ghost_body_pipeline) panic("Failed to create ghost body pipeline!");
+    if (!gfx->ghost_body_pipeline) panic("Failed to create ghost body graphics pipeline!");
+    if (!gfx->field_pipeline) panic("Failed to create field lines graphics pipeline!");
+    if (!gfx->potential_pipeline) panic("Failed to create potential graphics pipeline!");
 
     gfx->colors = CreateGPUArray(gpu, sizeof(SDL_FColor), SDL_GPU_BUFFERUSAGE_GRAPHICS_STORAGE_READ);
     if (!gfx->colors.buffer) panic("Failed to create color storage buffer!");
@@ -91,6 +102,7 @@ static void graphics_simulation_draw(const Graphics *gfx, const Simulation *sim,
 static void graphics_ghost_draw(const Graphics *gfx, const Ghost *ghost, SDL_GPURenderPass *render_pass);
 static void graphics_trails_draw(const Graphics *gfx, const Trails *trails, const Simulation *sim, SDL_GPURenderPass *render_pass);
 static void graphics_trajectories_draw(const Graphics *gfx, const Trajectories *trajectories, const Simulation *sim, const Ghost *ghost, SDL_GPURenderPass *render_pass);
+static void graphics_field_draw(const Graphics *gfx, const Field *field, SDL_GPURenderPass *render_pass);
 static void graphics_potential_draw(const Graphics *gfx, const Simulation *sim, SDL_GPURenderPass *render_pass, SDL_GPUCommandBuffer *command_buffer);
 static void graphics_gui_draw(SDL_GPUCommandBuffer *command_buffer, SDL_GPUTexture *swapchain);
 void graphics_draw(const Graphics *gfx, const GraphicsDrawInfo *info) {
@@ -123,6 +135,7 @@ void graphics_draw(const Graphics *gfx, const GraphicsDrawInfo *info) {
     graphics_ghost_draw(gfx, info->ghost, render_pass);
     graphics_trails_draw(gfx, info->trails, info->sim, render_pass);
     graphics_trajectories_draw(gfx, info->trajectories, info->sim, info->ghost, render_pass);
+    graphics_field_draw(gfx, info->field, render_pass);
     SDL_EndGPURenderPass(render_pass);
 
     graphics_gui_draw(info->command_buffer, swapchain);
@@ -190,8 +203,13 @@ static void graphics_ghost_draw(const Graphics *gfx, const Ghost *ghost, SDL_GPU
     SDL_DrawGPUPrimitives(render_pass, 4, 1, 0, 0);
 }
 
-static void graphics_trails_draw(const Graphics *gfx, const Trails *trails, const Simulation *sim, SDL_GPURenderPass *render_pass) {
-    if (!sim->body_count) return;
+static void graphics_trails_draw(
+    const Graphics *gfx,
+    const Trails *trails,
+    const Simulation *sim,
+    SDL_GPURenderPass *render_pass
+) {
+    if (!sim->body_count || !gfx->options.trails) return;
     SDL_BindGPUGraphicsPipeline(render_pass, gfx->trail_pipeline);
     SDL_BindGPUVertexStorageBuffers(render_pass, 0, (SDL_GPUBuffer*[]) { trails->array.buffer, gfx->colors.buffer }, 2);
     SDL_DrawGPUPrimitives(render_pass, TRAIL_LENGTH, sim->body_count, 0, 0);
@@ -205,14 +223,24 @@ static void graphics_trajectories_draw(
     SDL_GPURenderPass *render_pass
 ) {
     if (!trajectories->enabled) return;
-    if (!sim->body_count && !ghost->enabled) return;
-
     u32 trajectory_count = sim->body_count;
     if (ghost->enabled) trajectory_count += 1;
+    if (!trajectory_count) return;
 
     SDL_BindGPUGraphicsPipeline(render_pass, gfx->trajectory_pipeline);
     SDL_BindGPUVertexStorageBuffers(render_pass, 0, (SDL_GPUBuffer*[]) { trajectories->positions.buffer, gfx->colors.buffer }, 2);
     SDL_DrawGPUPrimitives(render_pass, PREDICTION_LENGTH, trajectory_count, 0, 0);
+}
+
+static void graphics_field_draw(const Graphics *gfx, const Field *field, SDL_GPURenderPass *render_pass) {
+    if (!field->line_count || !field->enabled) return;
+    SDL_BindGPUGraphicsPipeline(render_pass, gfx->field_pipeline);
+    SDL_BindGPUVertexStorageBuffers(render_pass, 0, (SDL_GPUBuffer*[]) {
+        field->lines.buffer,
+        field->line_ids.buffer,
+        gfx->colors.buffer
+    }, 3);
+    SDL_DrawGPUPrimitives(render_pass, FIELD_LINE_LENGTH, field->line_count, 0, 0);
 }
 
 static void graphics_potential_draw(
@@ -247,6 +275,7 @@ void graphics_free(const Graphics *gfx, SDL_GPUDevice *gpu) {
     SDL_ReleaseGPUGraphicsPipeline(gpu, gfx->body_pipeline);
     SDL_ReleaseGPUGraphicsPipeline(gpu, gfx->trail_pipeline);
     SDL_ReleaseGPUGraphicsPipeline(gpu, gfx->trajectory_pipeline);
+    SDL_ReleaseGPUGraphicsPipeline(gpu, gfx->field_pipeline);
     SDL_ReleaseGPUGraphicsPipeline(gpu, gfx->ghost_body_pipeline);
     SDL_ReleaseGPUBuffer(gpu, gfx->colors.buffer);
 }

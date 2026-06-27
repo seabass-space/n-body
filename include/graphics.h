@@ -9,6 +9,7 @@ typedef struct Simulation Simulation;
 typedef struct Ghost Ghost;
 typedef struct Trails Trails;
 typedef struct Trajectories Trajectories;
+typedef struct Field Field;
 typedef struct Camera Camera;
 
 typedef struct {
@@ -16,6 +17,7 @@ typedef struct {
     f32 movable_outline;
     f32 static_outline;
     f32 trail_brightness;
+    bool trails;
     bool potential;
 } GraphicsOptions;
 
@@ -25,6 +27,7 @@ typedef struct Graphics {
     SDL_GPUGraphicsPipeline *trail_pipeline;
     SDL_GPUGraphicsPipeline *trajectory_pipeline;
     SDL_GPUGraphicsPipeline *ghost_body_pipeline;
+    SDL_GPUGraphicsPipeline *field_pipeline;
     SDL_GPUGraphicsPipeline *potential_pipeline;
     GPUArray colors;
 } Graphics;
@@ -44,6 +47,7 @@ typedef struct {
     const Ghost *ghost;
     const Trails *trails;
     const Trajectories *trajectories;
+    const Field *field;
     const Camera *cam;
 } GraphicsDrawInfo;
 void graphics_draw(const Graphics *gfx, const GraphicsDrawInfo *info);

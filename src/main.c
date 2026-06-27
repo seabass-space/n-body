@@ -43,7 +43,7 @@ SDL_AppResult SDL_AppInit(void **appstate, const int argc, char **argv) {
     // initialize SDL3
     if (!SDL_Init(SDL_INIT_VIDEO | SDL_INIT_GAMEPAD)) panic("Failed to initialize SDL3!");
     const f32 main_scale = SDL_GetDisplayContentScale(SDL_GetPrimaryDisplay());
-    const SDL_WindowFlags window_flags = SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIDDEN | SDL_WINDOW_HIGH_PIXEL_DENSITY;
+    const SDL_WindowFlags window_flags = SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIGH_PIXEL_DENSITY;
     app->window = SDL_CreateWindow("N-Body Simulation", (i32)(WIDTH_DEFAULT * main_scale), (i32)(HEIGHT_DEFAULT * main_scale), window_flags);
     if (!app->window) panic("Failed to create SDL window!");
     SDL_ShowWindow(app->window);
@@ -97,19 +97,20 @@ SDL_AppResult SDL_AppIterate(void *appstate) {
     accumulator += delta_time;
     while (accumulator >= app->options.fixed_delta_time) {
         simulation_update(&app->sim, command_buffer, compute_pass, app->options.fixed_delta_time);
-        trails_update(&app->trails, command_buffer, compute_pass, &app->sim);
-        trajectories_update(&app->trajectories, &(TrajectoriesUpdateInfo) {
-            .command_buffer = command_buffer,
-            .compute_pass = compute_pass,
-            .sim = &app->sim,
-            .ghost = &app->ghost,
-            .delta_time = delta_time
-        });
-
         accumulator -= app->options.fixed_delta_time;
     }
 
+    trails_update(&app->trails, command_buffer, compute_pass, &app->sim);
+    trajectories_update(&app->trajectories, &(TrajectoriesUpdateInfo) {
+        .command_buffer = command_buffer,
+        .compute_pass = compute_pass,
+        .sim = &app->sim,
+        .ghost = &app->ghost,
+        .delta_time = delta_time
+    });
+    field_update(&app->field, &app->sim, command_buffer, compute_pass);
     SDL_EndGPUComputePass(compute_pass);
+
     camera_update(&app->cam, app->window, app->gpu, &app->sim);
     ghost_update(&app->ghost, app->gpu, &app->sim, &app->cam);
     trajectories_ghost_update(&app->trajectories, &(TrajectoriesGhostUpdateInfo) {
@@ -124,6 +125,7 @@ SDL_AppResult SDL_AppIterate(void *appstate) {
         .sim = &app->sim,
         .ghost = &app->ghost,
         .trajectories = &app->trajectories,
+        .field = &app->field,
         .cam = &app->cam,
         .gfx = &app->gfx,
     });
@@ -136,6 +138,7 @@ SDL_AppResult SDL_AppIterate(void *appstate) {
         .ghost = &app->ghost,
         .trails = &app->trails,
         .trajectories = &app->trajectories,
+        .field = &app->field,
         .cam = &app->cam,
     });
 
@@ -176,9 +179,15 @@ SDL_AppResult SDL_AppEvent(void *appstate, SDL_Event *event) {
 static void add_body(Application *app, const SimulationAddBodyInfo *sim_info, SDL_FColor *color) {
     SDL_GPUCommandBuffer *command_buffer = SDL_AcquireGPUCommandBuffer(app->gpu);
     SDL_GPUCopyPass *copy_pass = SDL_BeginGPUCopyPass(command_buffer);
-    simulation_add_body(&app->sim, app->gpu, copy_pass, sim_info);
+    u32 body_index = simulation_add_body(&app->sim, app->gpu, copy_pass, sim_info);
     trails_add_body(&app->trails, app->gpu, copy_pass, sim_info->position);
     trajectories_add_body(&app->trajectories, app->gpu, copy_pass);
+    field_add_body(&app->field, &(FieldAddBodyInfo) {
+        .gpu = app->gpu,
+        .copy_pass = copy_pass,
+        .index = body_index,
+        .mass = sim_info->mass
+    });
     graphics_add_body(&app->gfx, app->gpu, copy_pass, color);
     SDL_EndGPUCopyPass(copy_pass);
     SDL_SubmitGPUCommandBuffer(command_buffer);

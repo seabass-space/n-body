@@ -3,6 +3,7 @@
 #include "camera.h"
 #include "ghost.h"
 #include "trajectories.h"
+#include "field.h"
 #include "graphics.h"
 
 #include "backends/dcimgui_impl_sdl3.h"
@@ -34,42 +35,51 @@ void gui_init(Gui *gui, SDL_Window *window, SDL_GPUDevice *gpu) {
 }
 
 static void HelpMarker(const char *desc);
-static void gui_create_body(Ghost *ghost);
-// static void gui_inspector(const Simulation *sim, Graphics *gfx, Camera *cam);
-static void gui_controls(ApplicationOptions *app, SimulationOptions *sim, Trajectories *trajectories, GraphicsOptions *gfx);
+static void gui_controls(SimulationOptions *sim, Ghost *ghost);
+static void gui_visualizations(GraphicsOptions *graphics, Trajectories *trajectories, Field *field);
+static void gui_options(ApplicationOptions *app, SimulationOptions *sim, Trajectories *trajectories, GraphicsOptions *gfx);
 void gui_update(const GuiUpdateInfo *info) {
     cImGui_ImplSDLGPU3_NewFrame();
     cImGui_ImplSDL3_NewFrame();
     ImGui_NewFrame();
     ImGui_Begin("N-Body Simulator", NULL, ImGuiWindowFlags_AlwaysAutoResize);
 
-    gui_create_body(info->ghost);
-    gui_controls(info->app, &info->sim->options, info->trajectories, &info->gfx->options);
+    gui_controls(&info->sim->options, info->ghost);
+    gui_visualizations(&info->gfx->options, info->trajectories, info->field);
+    gui_options(info->app, &info->sim->options, info->trajectories, &info->gfx->options);
 
     ImGui_End();
     ImGui_Render();
 }
 
-static void gui_create_body(Ghost *ghost) {
-    if (ImGui_CollapsingHeader("Create Body", ImGuiTreeNodeFlags_DefaultOpen)) {
-        ImGui_Checkbox("Body creation mode!", &ghost->enabled);
+static void gui_controls(SimulationOptions *sim, Ghost *ghost) {
+    if (ImGui_CollapsingHeader("Controls", ImGuiTreeNodeFlags_DefaultOpen)) {
+        ImGui_Checkbox("Pause", &sim->paused);
+        ImGui_Checkbox("Create bodies!", &ghost->enabled);
         HelpMarker("To create a new body: activate body creation mode, hold right click where you want to create the new body, drag out its velocity, and release!");
-        ImGui_BeginDisabled(!ghost->enabled);
-        ImGui_DragFloat("Mass", &ghost->mass);
-        HelpMarker("The mass of the new body.");
-        ImGui_ColorEdit3("Color", (f32*) &ghost->color, 0);
-        HelpMarker("The color of the new body.");
-        ImGui_Checkbox("Movable", &ghost->movable);
-        HelpMarker("Whether the body should be simulated or remain in place.");
-        ImGui_EndDisabled();
+        if (ghost->enabled) {
+            ImGui_DragFloat("Mass", &ghost->mass);
+            HelpMarker("The mass of the new body.");
+            ImGui_ColorEdit3("Color", (f32*) &ghost->color, 0);
+            HelpMarker("The color of the new body.");
+            ImGui_Checkbox("Movable", &ghost->movable);
+            HelpMarker("Whether the body should be simulated or remain in place.");
+        }
     }
 }
 
-static void gui_controls(ApplicationOptions *app, SimulationOptions *sim, Trajectories *trajectories, GraphicsOptions *gfx) {
-    if (ImGui_CollapsingHeader("Controls and Options", ImGuiTreeNodeFlags_DefaultOpen)) {
+static void gui_visualizations(GraphicsOptions *graphics, Trajectories *trajectories, Field *field) {
+    if (ImGui_CollapsingHeader("Visualizations", ImGuiTreeNodeFlags_DefaultOpen)) {
+        ImGui_Checkbox("Show body trails", &graphics->trails);
+        ImGui_Checkbox("Show body trajectories", &trajectories->enabled);
+        ImGui_Checkbox("Show gravitational field", &field->enabled);
+        ImGui_Checkbox("Show gravitational potential", &graphics->potential);
+    }
+}
 
+static void gui_options(ApplicationOptions *app, SimulationOptions *sim, Trajectories *trajectories, GraphicsOptions *gfx) {
+    if (ImGui_CollapsingHeader("Options", 0)) {
         ImGui_SeparatorText("Simulation Options");
-        ImGui_Checkbox("Pause", &sim->paused);
         ImGui_DragFloat("Time Step", &app->fixed_delta_time);
         ImGui_DragFloat("Gravity Coefficient", &sim->gravity);
         HelpMarker("Strength of the gravitational force between two bodies.");

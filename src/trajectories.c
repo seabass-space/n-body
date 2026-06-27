@@ -50,7 +50,9 @@ void trajectories_ghost_update(const Trajectories *trajectories, const Trajector
 
 void trajectories_update(const Trajectories *trajectories, const TrajectoriesUpdateInfo *info) {
     if (!trajectories->enabled) return;
-    if (!info->sim->body_count && !info->ghost->enabled) return;
+    u32 trajectory_count = info->sim->body_count;
+    if (info->ghost->enabled) trajectory_count += 1;
+    if (!trajectory_count) return;
 
     const struct {
         u32 count;
@@ -70,9 +72,7 @@ void trajectories_update(const Trajectories *trajectories, const TrajectoriesUpd
 
     SDL_PushGPUComputeUniformData(info->command_buffer, 0, &constants, sizeof(constants));
 
-    u32 trajectory_count = info->sim->body_count;
-    if (info->ghost->enabled) trajectory_count += 1;
-
+    SDL_BindGPUComputePipeline(info->compute_pass, trajectories->pipeline);
     SDL_BindGPUComputeStorageBuffers(info->compute_pass, 0, (SDL_GPUBuffer*[]) {
         trajectories->positions.buffer,
         trajectories->velocities.buffer,
@@ -81,7 +81,7 @@ void trajectories_update(const Trajectories *trajectories, const TrajectoriesUpd
         info->sim->masses.buffer,
         info->sim->movable.buffer
     }, 6);
-    SDL_BindGPUComputePipeline(info->compute_pass, trajectories->pipeline);
+
     for (u32 i = 0; i < PREDICTION_LENGTH; i++) {
         SDL_PushGPUComputeUniformData(info->command_buffer, 1, &i, sizeof(i));
         SDL_DispatchGPUCompute(info->compute_pass, trajectory_count, 1, 1);

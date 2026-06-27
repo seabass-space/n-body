@@ -30,5 +30,5 @@ void main() {
 
     vec4 color = (gl_InstanceIndex == body_count) ? ghost : colors[gl_InstanceIndex];
     float alpha = (brightness / 2.0) * (1.0 - float(gl_VertexIndex) / float(PREDICTION_LENGTH));
-     out_color = vec4(color.rgb, alpha);
+    out_color = vec4(color.rgb, alpha);
 }

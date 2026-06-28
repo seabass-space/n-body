@@ -65,7 +65,7 @@ void field_update(
     SDL_BindGPUComputeStorageBuffers(compute_pass, 0, (SDL_GPUBuffer*[]) {
         field->lines.buffer,
         field->line_ids.buffer,
-        sim->positions.buffer,
+        sim->positions_a.buffer,
         sim->masses.buffer
     }, 4);
 

@@ -11,7 +11,7 @@ void camera_init(Camera *cam) {
 
 void camera_update(Camera *cam, SDL_Window *window, SDL_GPUDevice *gpu, const Simulation *sim) {
     if (cam->target != (u32) -1) ReadFromGPUBufferNow(gpu, &(ReadGPUBufferBinding) {
-        .buffer = sim->positions.buffer,
+        .buffer = sim->positions_a.buffer,
         .buffer_offset = cam->target * sizeof(HMM_Vec2),
         .destination = (u8*) &cam->position,
         .size = sizeof(HMM_Vec2)

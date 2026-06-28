@@ -91,27 +91,29 @@ SDL_AppResult SDL_AppIterate(void *appstate) {
 
     SDL_GPUCommandBuffer *command_buffer = SDL_AcquireGPUCommandBuffer(app->gpu);
     SDL_GPUComputePass *compute_pass = SDL_BeginGPUComputePass(command_buffer, NULL, 0, (SDL_GPUStorageBufferReadWriteBinding[]) {
-        { .buffer = app->sim.positions.buffer, .cycle = false },
+        { .buffer = app->sim.positions_a.buffer, .cycle = false },
+        { .buffer = app->sim.positions_b.buffer, .cycle = false },
         { .buffer = app->sim.velocities.buffer, .cycle = false },
         { .buffer = app->trails.array.buffer, .cycle = false },
         { .buffer = app->trajectories.positions.buffer, .cycle = false },
         { .buffer = app->trajectories.velocities.buffer, .cycle = false },
-    }, 5);
+    }, 6);
 
     accumulator += delta_time;
     while (accumulator >= app->options.fixed_delta_time) {
         simulation_update(&app->sim, command_buffer, compute_pass, app->options.fixed_delta_time);
+        trajectories_update(&app->trajectories, &(TrajectoriesUpdateInfo) {
+            .command_buffer = command_buffer,
+            .compute_pass = compute_pass,
+            .sim = &app->sim,
+            .ghost = &app->ghost,
+            .delta_time = app->options.fixed_delta_time
+        });
+
         accumulator -= app->options.fixed_delta_time;
     }
 
     trails_update(&app->trails, command_buffer, compute_pass, &app->sim);
-    trajectories_update(&app->trajectories, &(TrajectoriesUpdateInfo) {
-        .command_buffer = command_buffer,
-        .compute_pass = compute_pass,
-        .sim = &app->sim,
-        .ghost = &app->ghost,
-        .delta_time = delta_time
-    });
     field_update(&app->field, &app->sim, command_buffer, compute_pass);
     SDL_EndGPUComputePass(compute_pass);
 

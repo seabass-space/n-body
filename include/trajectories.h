@@ -27,7 +27,7 @@ typedef struct {
     const Ghost *ghost;
     f32 delta_time;
 } TrajectoriesUpdateInfo;
-void trajectories_update(const Trajectories *trajectories, const TrajectoriesUpdateInfo *info);
+void trajectories_update(const Trajectories *trajectories, TrajectoriesUpdateInfo *info);
 typedef struct {
     const Ghost *ghost;
     const Simulation *sim;

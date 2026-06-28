@@ -13,10 +13,10 @@ layout (std140, set = 2, binding = 0) uniform Constants {
 };
 
 uint when_neq(uint a, uint b) { return uint(a != b); }
-vec2 gravity(uint self, vec2 r_self) {
+vec2 gravity(uint self) {
     vec2 net_a = vec2(0.0);
     for (uint i = 0; i < body_count; i++) {
-        vec2 R = r[i] - r_self;
+        vec2 R = r[i] - r[self];
         float R2 = dot(R, R) + ee * ee;
         net_a += (G * m[i] / R2) * normalize(R) * when_neq(i, self);
     }
@@ -28,8 +28,8 @@ vec2 gravity(uint self, vec2 r_self) {
 layout (local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
 void main() {
     uint i = gl_GlobalInvocationID.x;
-    vec2 a = gravity(i, r[i]);
+    vec2 a = gravity(i);
     r[i] += v[i] * dt + a * (dt * dt) / 2;
-    vec2 a_next = gravity(i, r[i]);
+    vec2 a_next = gravity(i);
     v[i] += (a + a_next) * (dt / 2);
 }

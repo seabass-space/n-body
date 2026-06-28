@@ -23,7 +23,12 @@ typedef struct Simulation {
     SimulationOptions options;
     SDL_GPUComputePipeline *integrators[3];
 
-    GPUArray positions;
+    enum {
+        SIM_POSITIONS_A,
+        SIM_POSITIONS_B,
+    } current_buffer;
+    GPUArray positions_a;
+    GPUArray positions_b;
     GPUArray velocities;
     GPUArray masses;
     GPUArray movable;
@@ -40,7 +45,7 @@ typedef struct {
 
 u32 simulation_add_body(Simulation *sim, SDL_GPUDevice *gpu, SDL_GPUCopyPass *copy_pass,
                         const SimulationAddBodyInfo *body);
-void simulation_update(const Simulation *sim, SDL_GPUCommandBuffer *command_buffer, SDL_GPUComputePass *compute_pass, f32 delta_time);
+void simulation_update(Simulation *sim, SDL_GPUCommandBuffer *command_buffer, SDL_GPUComputePass *compute_pass, f32 delta_time);
 void simulation_free(const Simulation *sim, SDL_GPUDevice *gpu);
 
 #endif

@@ -30,7 +30,7 @@ void trails_update(Trails *trails, SDL_GPUCommandBuffer *command_buffer, SDL_GPU
     SDL_PushGPUComputeUniformData(command_buffer, 0, &trails->frame, sizeof(u32));
 
     SDL_BindGPUComputePipeline(compute_pass, trails->pipeline);
-    SDL_BindGPUComputeStorageBuffers(compute_pass, 0, (SDL_GPUBuffer*[]) { trails->array.buffer, sim->positions.buffer }, 2);
+    SDL_BindGPUComputeStorageBuffers(compute_pass, 0, (SDL_GPUBuffer*[]) { trails->array.buffer, sim->positions_a.buffer }, 2);
     SDL_DispatchGPUCompute(compute_pass, sim->body_count, 1, 1);
 }
 

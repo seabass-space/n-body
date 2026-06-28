@@ -189,7 +189,7 @@ static void graphics_simulation_draw(const Graphics *gfx, const Simulation *sim,
     if (!sim->body_count) return;
     SDL_BindGPUGraphicsPipeline(render_pass, gfx->body_pipeline);
     SDL_BindGPUVertexStorageBuffers(render_pass, 0, (SDL_GPUBuffer*[]) {
-        sim->positions.buffer,
+        sim->positions_a.buffer,
         gfx->colors.buffer,
         sim->masses.buffer,
         sim->movable.buffer
@@ -252,7 +252,7 @@ static void graphics_potential_draw(
     if (!gfx->options.potential) return;
     SDL_BindGPUGraphicsPipeline(render_pass, gfx->potential_pipeline);
     SDL_PushGPUFragmentUniformData(command_buffer, 0, &sim->body_count, sizeof(sim->body_count));
-    SDL_BindGPUFragmentStorageBuffers(render_pass, 0, (SDL_GPUBuffer*[]) { sim->positions.buffer, sim->masses.buffer }, 2);
+    SDL_BindGPUFragmentStorageBuffers(render_pass, 0, (SDL_GPUBuffer*[]) { sim->positions_a.buffer, sim->masses.buffer }, 2);
     SDL_DrawGPUPrimitives(render_pass, 4, 1, 0, 0);
 }
 
